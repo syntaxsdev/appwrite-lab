@@ -16,3 +16,15 @@ Zero-click Appwrite test environments
 ```sh
 appwrite-lab --help
 ```
+
+To get started spinning up a lab instance, use:
+
+```sh
+appwrite-lab new lab --name test-lab --version 1.7.4
+```
+
+To teardown,
+
+```sh
+appwrite-lab stop test-lab
+```

@@ -19,7 +19,7 @@ services:
       - --entrypoints.appwrite_websecure.address=:443
     restart: unless-stopped
     ports:
-      - 80:80
+      - ${_APP_PORT}:80
       - 443:443
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

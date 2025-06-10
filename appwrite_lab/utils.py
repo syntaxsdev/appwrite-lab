@@ -3,12 +3,11 @@ import platform
 
 from rich.console import Console
 from rich.table import Table
-from rich.spinner import Spinner
 from pathlib import Path
 
+is_cli_setting: bool = False
 
 console = Console()
-
 
 APP_NAME = "appwrite-lab"
 
@@ -36,3 +35,13 @@ def get_state_path():
     state_dir = base / APP_NAME
     state_dir.mkdir(parents=True, exist_ok=True)
     return state_dir / "state.json"
+
+
+def set_cli_true():
+    global is_cli_setting
+    is_cli_setting = True
+
+
+@property
+def is_cli():
+    return is_cli_setting

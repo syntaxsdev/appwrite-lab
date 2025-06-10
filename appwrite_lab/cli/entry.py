@@ -2,16 +2,18 @@ import typer
 import typer.rich_utils
 from appwrite_lab._orchestrator import ServiceOrchestrator, get_template_versions
 from appwrite_lab._state import State
-from appwrite_lab.utils import print_table
+from appwrite_lab.utils import print_table, set_cli_true
+from appwrite_lab import get_global_labs
 
-state = State()
-# check backend preference
-backend = state.get("backend")
-if backend is None:
-    backend = "docker"
-    state.set("backend", backend)
+from .new_menu import new_menu
+from .stop_menu import stop
 
-orchestrator = ServiceOrchestrator(state)
+set_cli_true()
+
+# Initialize the labs
+labs = get_global_labs()
+state = labs.state
+
 
 app = typer.Typer(
     name="appwrite-lab", rich_markup_mode=typer.rich_utils.MARKUP_MODE_RICH
@@ -19,17 +21,10 @@ app = typer.Typer(
 list_app = typer.Typer(name="list", rich_markup_mode=typer.rich_utils.MARKUP_MODE_RICH)
 
 
-@app.command()
-def new(
-    name: str = typer.Option(..., help="The name of the ephemeral Appwrite instance."),
-):
-    """Spin up a new ephemeral Appwrite instance."""
-
-
-@list_app.command()
-def labs():
+@list_app.command(name="labs")
+def get_labs():
     """List all ephemeral Appwrite instances."""
-    return orchestrator.get_running_pods()
+    return labs.orchestrator.get_running_pods()
 
 
 @list_app.command()
@@ -45,5 +40,6 @@ def delete(name: str):
 
 
 app.add_typer(list_app, name="list")
-# @app.command()
-# def
+app.add_typer(new_menu, name="new")
+app.command()(stop)
+# app.add_typer(stop_menu, name="stop")

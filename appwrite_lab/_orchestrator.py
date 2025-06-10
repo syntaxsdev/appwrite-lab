@@ -8,12 +8,22 @@ from ._state import State
 from dataclasses import dataclass
 from .models import LabService
 
+from appwrite_lab.utils import console
+from .utils import is_cli
+
 
 @dataclass
 class Response:
     message: str
     data: any
     error: bool = False
+
+    def __post_init__(self):
+        if is_cli:
+            if self.error:
+                console.print(self.message, style="red")
+            else:
+                console.print(self.message, style="green")
 
 
 @dataclass
@@ -54,7 +64,7 @@ class ServiceOrchestrator:
         pods_by_project = self.get_pods_by_project(name)
         if len(pods_by_project) > 0:
             return Response(
-                error=True, message=f"Lab `{name}` already deployed.", data=None
+                error=True, message=f"Lab '{name}' already deployed.", data=None
             )
         converted_version = version.replace(".", "_")
         template_path = (
@@ -74,7 +84,7 @@ class ServiceOrchestrator:
             )
         return Response(
             error=False,
-            message=f"Lab `{name}` deployed.",
+            message=f"Lab '{name}' deployed.",
             data=result.stdout,
         )
 
@@ -87,17 +97,19 @@ class ServiceOrchestrator:
             return False
         return True
 
-    def wind_down_service(self, service_name: str):
+    def wind_down_service(self, name: str):
         """
         Wind down a service.
 
         Args:
-            service_name: The name of the service to wind down.
+            name: The name of the service to wind down.
         """
-        services = self.state.get("services")
-        if not self.check_pod_status(service_name):
+        pods_by_project = self.get_pods_by_project(name)
+        if not pods_by_project:
             return Response(
-                error=True, message=f"Service {service_name} is not running.", data=None
+                error=True,
+                message=f"Nothing to stop by name of '{name}'.",
+                data=None,
             )
         # cmd = [self.util, "compose", "down", service_name]
 
@@ -108,7 +120,7 @@ class ServiceOrchestrator:
         Args:
             project_name: The name of the project to get the pods for.
         """
-        pods = run_cmd(
+        result = run_cmd(
             [
                 self.util,
                 "ps",
@@ -118,7 +130,7 @@ class ServiceOrchestrator:
                 "json",
             ]
         )
-        return pods
+        return _stdout_to_json(result.stdout)
 
     @property
     def util(self):
@@ -176,3 +188,13 @@ def get_template_versions():
         for template in templates
     ]
     return versions
+
+
+def _stdout_to_json(stdout: str):
+    """
+    Convert stdout to a JSON object.
+
+    Args:
+        stdout: The stdout to convert to a JSON object.
+    """
+    return [json.loads(line) for line in stdout.strip().splitlines() if line.strip()]

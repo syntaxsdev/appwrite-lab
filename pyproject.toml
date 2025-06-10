@@ -7,4 +7,4 @@ requires-python = ">=3.12"
 dependencies = ["playwright", "typer"]
 
 [project.scripts]
-appwrite-lab = "appwrite_lab.cli:app"
+appwrite-lab = "appwrite_lab.cli.entry:app"

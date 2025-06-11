@@ -37,6 +37,7 @@ class LabService:
             self.project_id = "".join(
                 random.choices(string.ascii_letters + string.digits, k=10)
             )
+            self.project_id = self.project_id.lower()
         if not self.admin_email:
             self.admin_email = f"admin_{self.project_id}@local.dev"
         if not self.admin_password:

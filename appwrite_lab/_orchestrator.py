@@ -239,6 +239,7 @@ class ServiceOrchestrator:
                 "APPWRITE_ADMIN_EMAIL": lab.admin_email,
                 "APPWRITE_ADMIN_PASSWORD": lab.admin_password,
             }
+            envs = " ".join([f"{key}={value}" for key, value in env_vars.items()])
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_file = Path(temp_dir) / "function.py"
                 shutil.copy(function, temp_file)
@@ -253,7 +254,7 @@ class ServiceOrchestrator:
                     PLAYWRIGHT_IMAGE,
                     "bash",
                     "-c",
-                    "pip install playwright asyncio && echo XXXX '$APPWRITE_URL' && python /playwright/function.py",
+                    f"pip install playwright asyncio && {envs} python /playwright/function.py",
                 ]
                 cmd_res = self._run_cmd_safely(cmd)
                 if type(cmd_res) is Response and cmd_res.error:

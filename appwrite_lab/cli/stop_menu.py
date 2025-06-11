@@ -14,6 +14,6 @@ def stop(name: str):
         name: The name of the lab to stop.
     """
     labs = get_global_labs()
-    with console.status(f"Stopping lab `{name}`...", spinner="dots") as status:
+    with console.status(f"Stopping lab '{name}'...", spinner="dots") as status:
         labs.stop(name=name)
-        status.update(f"Stopping lab `{name}`... done")
+        status.update(f"Stopping lab '{name}'... done")

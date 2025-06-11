@@ -1,0 +1,9 @@
+version: '3'
+services:
+  playwright:
+    image: mcr.microsoft.com/playwright/python:latest
+    volumes:
+      - ./playwright:/playwright
+    depends_on:
+      - appwrite
+    entrypoint: ["python", "/playwright/automations.py"]

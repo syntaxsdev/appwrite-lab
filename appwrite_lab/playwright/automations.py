@@ -1,14 +1,14 @@
 from playwright.async_api import Playwright, async_playwright
 from models import AppwriteUserCreation
 from functions import create_user_and_api_key
-
+from appwrite_lab._orchestrator import ServiceOrchestrator
 
 class AppwriteAutomation:
-    def __init__(self, url: str):
-        self.url = url
+    def __init__(self, orchestrator: ServiceOrchestrator):
+        self.orchestrator = orchestrator
         self.playwright = async_playwright()
 
-    async def create_user_and_api_key(
+    async def automate_fetch_api_key(
         self, config: AppwriteUserCreation | None = None
     ) -> tuple[str, AppwriteUserCreation]:
         """Create a user and an API key for the Appwrite project.

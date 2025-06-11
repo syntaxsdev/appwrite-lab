@@ -47,7 +47,7 @@ class ServiceOrchestrator:
         """
         Get all labs.
         """
-        self.state.get("labs", {})
+        return self.state.get("labs", {})
 
     def get_running_pods(self):
         """
@@ -174,11 +174,11 @@ class ServiceOrchestrator:
         project_pods = self.get_running_pods_by_project(name)
         if "appwrite" in project_pods:
             appwrite_pod = project_pods["appwrite"]
-            port = appwrite_pod["Ports"]
+            port = appwrite_pod["Ports"].split("/")[0]
             url = f"http://localhost:{port}"
         else:
             url = ""
-
+        print("url", url)
         lab = LabService(
             name=name,
             version=version,
@@ -223,7 +223,7 @@ class ServiceOrchestrator:
             lab: The lab to deploy the automations for.
             automation: The automation to deploy.
         """
-        if automation == Automation.CREATE_API_KEY:
+        if automation == Automation.CREATE_USER_AND_API_KEY:
             function = (
                 Path(__file__).parent / "playwright" / "functions" / f"{automation}.py"
             )
@@ -245,7 +245,6 @@ class ServiceOrchestrator:
                 cmd = [
                     self.util,
                     "run",
-                    "--rm",
                     "--network",
                     "host",
                     "-v",
@@ -254,7 +253,7 @@ class ServiceOrchestrator:
                     PLAYWRIGHT_IMAGE,
                     "bash",
                     "-c",
-                    "pip install playwright asyncio && python /playwright/function.py",
+                    "pip install playwright asyncio && echo XXXX '$APPWRITE_URL' && python /playwright/function.py",
                 ]
                 cmd_res = self._run_cmd_safely(cmd)
                 if type(cmd_res) is Response and cmd_res.error:
@@ -262,12 +261,13 @@ class ServiceOrchestrator:
                         f"Failed to deploy playwright automation {automation}."
                     )
                     return cmd_res
-
                 # If successful, any data should be mounted as result.txt
                 result_file = Path(temp_dir) / "result.txt"
                 if result_file.exists():
                     with open(result_file, "r") as f:
-                        return f.read()
+                        data = f.read()
+                        print("RESULT FILE", data)
+                        return data
                 else:
                     return None
 

@@ -7,11 +7,17 @@ class Labs:
         self.state = State()
         self.orchestrator = ServiceOrchestrator(self.state)
 
-    def new(self, name: str, version: str, port: int):
-        return self.orchestrator.deploy_service(name, version, port)
+    def new(
+        self,
+        name: str,
+        version: str,
+        port: int,
+        meta: dict[str, str] = {},
+    ):
+        return self.orchestrator.deploy_appwrite_lab(name, version, port, meta)
 
     def get_lab(self, name: str):
         return self.orchestrator.get_running_pods().get(name)
 
     def stop(self, name: str):
-        return self.orchestrator.wind_down_service(name)
+        return self.orchestrator.teardown_service(name)

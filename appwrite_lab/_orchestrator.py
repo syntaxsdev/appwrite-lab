@@ -1,15 +1,17 @@
 import os
 import shutil
-import typer
-from pathlib import Path
 import subprocess
 import json
+import tempfile
+from pathlib import Path
 from ._state import State
 from dataclasses import dataclass
-from .models import LabService
+from .models import LabService, Automation
 from dotenv import dotenv_values
 from appwrite_lab.utils import console
 from .utils import is_cli
+from .config import PLAYWRIGHT_IMAGE
+from dataclasses import asdict
 
 
 @dataclass
@@ -40,6 +42,12 @@ class ServiceOrchestrator:
         self.default_env_vars = str(
             Path(__file__).parent / "templates" / "environment" / "dotenv"
         )
+
+    def get_labs(self):
+        """
+        Get all labs.
+        """
+        self.state.get("labs", {})
 
     def get_running_pods(self):
         """
@@ -76,15 +84,63 @@ class ServiceOrchestrator:
         }
         return pods
 
-    def deploy_service(self, name: str, version: str, port: int):
+    def _deploy_service(
+        self,
+        project: str,
+        template_path: Path,
+        env_vars: dict[str, str] = {},
+        extra_args: list[str] = [],
+    ):
         """
-        Deploy a service.
+        Barebone deployment of a service.
+
+        Args:
+            project: The name of the project to deploy the service to.
+            template_path: The path to the template to use for the service.
+            env_vars: The environment variables to set.
+            extra_args: Extra arguments to pass to the compose command.
+        """
+        new_env = {**os.environ, **env_vars}
+        cmd = [
+            self.compose,
+            "-f",
+            template_path,
+            "-p",
+            project,
+            *extra_args,
+            "up",
+            "-d",
+        ]
+        return self._run_cmd_safely(cmd, envs=new_env)
+
+    def _run_cmd_safely(self, cmd: list[str], envs: dict[str, str] = {}):
+        """
+        Private function to run a command and return the output.
+
+        Args:
+            cmd: The command to run.
+            envs: The environment variables to set.
+        """
+        try:
+            return run_cmd(cmd, envs)
+        except OrchestratorError as e:
+            return Response(error=True, message=f"Failed to run command: {e}", data=e)
+
+    def deploy_appwrite_lab(
+        self, name: str, version: str, port: int, meta: dict[str, str]
+    ):
+        """
+        Deploy an Appwrite lab.
 
         Args:
             name: The name to give to the deployment/project.
             version: The version of the service to deploy.
+            port: The port to use for the Appwrite service. Must not be in use by another service.
+            meta: Extra metadata to pass to the deployment.
         """
         # sync
+        appwrite_config = meta.get("appwrite_config", {})
+
         pods_by_project = self.get_pods_by_project(name)
         if len(pods_by_project) > 0:
             return Response(
@@ -106,12 +162,13 @@ class ServiceOrchestrator:
         if port != 80:
             env_vars["_APP_PORT"] = str(port)
 
-        cmd = [self.compose, "-f", template_path, "-p", name, "up", "-d"]
-        result = run_cmd(cmd, envs=env_vars)
-        if result.returncode != 0:
-            return Response(
-                error=True, message=f"Failed to deploy lab {name}.", data=result.stdout
-            )
+        # What actually deploys the service
+        cmd_res = self._deploy_service(
+            project=name, template_path=template_path, env_vars=env_vars
+        )
+        # if CLI, will throw error in actual Response object
+        if type(cmd_res) is Response and cmd_res.error:
+            return cmd_res
 
         # Get appwrite pods
         project_pods = self.get_running_pods_by_project(name)
@@ -122,11 +179,125 @@ class ServiceOrchestrator:
         else:
             url = ""
 
-        lab = LabService(name=name, version=version, url=url)
+        lab = LabService(
+            name=name,
+            version=version,
+            url=url,
+            **appwrite_config,
+        )
+
+        lab.generate_missing_config()
+        # Deploy playwright automations for creating user and API key
+        api_key_res = self.deploy_playwright_automation(
+            lab, Automation.CREATE_USER_AND_API_KEY
+        )
+        if type(api_key_res) is Response and api_key_res.error:
+            api_key_res.message = (
+                f"Lab '{name}' deployed, but failed to create API key."
+            )
+            return api_key_res
+        lab.api_key = api_key_res
+
+        stored_labs: dict = self.state.get("labs", {}).copy()
+        stored_labs[name] = asdict(lab)
+        self.state.set("labs", stored_labs)
+
         return Response(
             error=False,
             message=f"Lab '{name}' deployed.",
             data=lab,
+        )
+
+    def deploy_playwright_automation(
+        self, lab: LabService, automation: str
+    ) -> str | Response:
+        """
+        Deploy playwright automations on a lab (very few automations supported).
+        The main one is for creating a user and getting initial API key
+        to use for subsequent automation.
+
+        Open to expandability if needed - which is why this function is structured
+        this way.
+
+        Args:
+            lab: The lab to deploy the automations for.
+            automation: The automation to deploy.
+        """
+        if automation == Automation.CREATE_API_KEY:
+            function = (
+                Path(__file__).parent / "playwright" / "functions" / f"{automation}.py"
+            )
+            if not function.exists():
+                return Response(
+                    error=True,
+                    message=f"Function {automation} not found. This should not happen.",
+                    data=None,
+                )
+            env_vars = {
+                "APPWRITE_URL": lab.url,
+                "APPWRITE_PROJECT_ID": lab.project_id,
+                "APPWRITE_ADMIN_EMAIL": lab.admin_email,
+                "APPWRITE_ADMIN_PASSWORD": lab.admin_password,
+            }
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_file = Path(temp_dir) / "function.py"
+                shutil.copy(function, temp_file)
+                cmd = [
+                    self.util,
+                    "run",
+                    "--rm",
+                    "--network",
+                    "host",
+                    "-v",
+                    f"{temp_dir}:/playwright",
+                    *[f"-e {key}={value}" for key, value in env_vars.items()],
+                    PLAYWRIGHT_IMAGE,
+                    "bash",
+                    "-c",
+                    "pip install playwright asyncio && python /playwright/function.py",
+                ]
+                cmd_res = self._run_cmd_safely(cmd)
+                if type(cmd_res) is Response and cmd_res.error:
+                    cmd_res.message = (
+                        f"Failed to deploy playwright automation {automation}."
+                    )
+                    return cmd_res
+
+                # If successful, any data should be mounted as result.txt
+                result_file = Path(temp_dir) / "result.txt"
+                if result_file.exists():
+                    with open(result_file, "r") as f:
+                        return f.read()
+                else:
+                    return None
+
+    def teardown_service(self, name: str):
+        """
+        Wind down a service.
+
+        Args:
+            name: The name of the service to teardown.
+        """
+        pods_by_project = self.get_pods_by_project(name)
+        if not pods_by_project:
+            return Response(
+                error=True,
+                message=f"Nothing to stop by name of '{name}'.",
+                data=None,
+            )
+        cmd = [self.compose, "-p", name, "down", "-v"]
+        cmd_res = self._run_cmd_safely(cmd)
+        if type(cmd_res) is Response and cmd_res.error:
+            cmd_res.message = f"Failed to teardown lab {name}. \
+                        'Please run 'docker-compose -p {name} down -v' manually."
+            return cmd_res
+        labs: dict = self.state.get("labs", {}).copy()
+        labs.pop(name, None)
+        self.state.set("labs", labs)
+
+        return Response(
+            message=f"Lab '{name}' stopped.",
+            data=None,
         )
 
     def check_pod_status(self, pod_name: str):
@@ -137,27 +308,6 @@ class ServiceOrchestrator:
         if pod_name not in pods:
             return False
         return True
-
-    def wind_down_service(self, name: str):
-        """
-        Wind down a service.
-
-        Args:
-            name: The name of the service to wind down.
-        """
-        pods_by_project = self.get_pods_by_project(name)
-        if not pods_by_project:
-            return Response(
-                error=True,
-                message=f"Nothing to stop by name of '{name}'.",
-                data=None,
-            )
-        cmd = [self.compose, "-p", name, "down"]
-        result = run_cmd(cmd)
-        return Response(
-            message=f"Lab '{name}' stopped.",
-            data=result.stdout,
-        )
 
     def get_pods_by_project(self, project_name: str):
         """
@@ -203,12 +353,20 @@ def run_cmd(cmd: list[str], envs: dict[str, str] | None = None):
         cmd: The command to run.
         envs: The environment variables to set.
     """
-    return subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        env={**os.environ, **envs} if envs else None,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            env={**os.environ, **envs} if envs else None,
+        )
+        if result.returncode != 0:
+            raise OrchestratorError(
+                f"An error occured running a command: {result.stdout}"
+            )
+        return result
+    except Exception as e:
+        raise OrchestratorError(f"An error occured running a command: {e}")
 
 
 def get_template_versions():

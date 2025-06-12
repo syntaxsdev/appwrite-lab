@@ -1,10 +1,14 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "appwrite-lab"
 version = "0.0.1"
 description = "Zero-click Appwrite test environments."
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = ["playwright", "typer"]
-
+requires-python = ">=3.11"
+dependencies = ["playwright", "typer>=0.16.0", "python-dotenv>=1.1.0"]
+license = { text = "MIT" }
 [project.scripts]
 appwrite-lab = "appwrite_lab.cli.entry:app"

@@ -1,5 +1,5 @@
 from appwrite_lab import get_global_labs
-from appwrite_lab.utils import print_table, print_2d_table, console
+from appwrite_lab.utils import print_table
 from appwrite_lab._orchestrator import get_template_versions
 import typer
 

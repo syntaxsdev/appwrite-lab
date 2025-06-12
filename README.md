@@ -1,7 +1,10 @@
 # appwrite-lab
 Zero-click Appwrite test environments
 
-
+## Installation
+```sh
+pip install appwrite-lab
+```
 ## Appwrite Lab features (coming)
 1. Spin up ephemeral Appwrite instances with Docker/Podman
 2. Automatically grab API keys (for programmatic access)

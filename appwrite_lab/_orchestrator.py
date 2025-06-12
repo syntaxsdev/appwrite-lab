@@ -261,6 +261,7 @@ class ServiceOrchestrator:
                     self.util,
                     "run",
                     "--network",
+                    "--rm",
                     "host",
                     "-v",
                     f"{temp_dir}:/playwright",

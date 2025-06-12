@@ -1,7 +1,5 @@
 import typer
-import typer.rich_utils
-from appwrite_lab._state import State
-from appwrite_lab.utils import print_table, set_cli_true
+from appwrite_lab.utils import set_cli_true
 from appwrite_lab import get_global_labs
 
 from .new_menu import new_menu

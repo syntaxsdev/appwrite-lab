@@ -24,7 +24,7 @@ class State:
         if not os.path.exists(self.path):
             try:
                 with open(self.path, "w") as f:
-                    pass
+                    f.write("{}")
             except Exception as e:
                 raise StateError(f"Failed to create state file: {e}")
         else:

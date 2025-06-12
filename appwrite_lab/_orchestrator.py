@@ -43,11 +43,25 @@ class ServiceOrchestrator:
             Path(__file__).parent / "templates" / "environment" / "dotenv"
         )
 
-    def get_labs(self):
+    def get_labs(self, collapsed: bool = False):
         """
         Get all labs.
         """
-        return self.state.get("labs", {})
+        labs: dict = self.state.get("labs", {})
+        if collapsed:
+            headers = ["Name", "Version", "URL", "Admin Email", "Project ID", "API Key"]
+            return headers, [
+                [
+                    val["name"],
+                    val["version"],
+                    val["url"],
+                    val["admin_email"],
+                    val["project_id"],
+                    val["api_key"],
+                ]
+                for val in labs.values()
+            ]
+        return labs
 
     def get_running_pods(self):
         """
@@ -267,7 +281,6 @@ class ServiceOrchestrator:
                 if result_file.exists():
                     with open(result_file, "r") as f:
                         data = f.read()
-                        print("RESULT FILE", data)
                         return data
                 else:
                     return None

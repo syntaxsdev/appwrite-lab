@@ -55,8 +55,7 @@ async def create_user_and_api_key(playwright: Playwright) -> str:
     await browser.close()
 
     try:
-        with open("result.txt", "w") as f:
-            print("API KEY", api_key)
+        with open("/playwright/result.txt", "w") as f:
             f.write(api_key)
     except Exception as e:
         print("ERROR", e)

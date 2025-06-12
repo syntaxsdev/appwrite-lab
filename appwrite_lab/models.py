@@ -45,4 +45,4 @@ class LabService:
                 random.choices(string.ascii_letters + string.digits, k=16)
             )
         if not self.project_name:
-            self.project_name = "Default_{self.project_id}"
+            self.project_name = f"Default_{self.project_id}"

@@ -6,11 +6,11 @@ import tempfile
 from pathlib import Path
 from ._state import State
 from dataclasses import dataclass
-from .models import LabService, Automation
+from .models import LabService, Automation, SyncType
 from dotenv import dotenv_values
 from appwrite_lab.utils import console
-from .utils import is_cli
-from .config import PLAYWRIGHT_IMAGE
+from .utils import is_cli, load_config
+from .config import PLAYWRIGHT_IMAGE, APPWRITE_CLI_IMAGE
 from dataclasses import asdict
 
 
@@ -43,7 +43,21 @@ class ServiceOrchestrator:
             Path(__file__).parent / "templates" / "environment" / "dotenv"
         )
 
-    def get_labs(self, collapsed: bool = False):
+    def get_labs(self):
+        """
+        Get all labs.
+        """
+        labs: dict = self.state.get("labs", {})
+        return [LabService(**lab) for lab in labs.values()]
+
+    def get_lab(self, name: str):
+        """
+        Get a lab by name.
+        """
+        labs: dict = self.state.get("labs", {})
+        return LabService(**labs.get(name, {}))
+
+    def get_formatted_labs(self, collapsed: bool = False):
         """
         Get all labs.
         """
@@ -192,7 +206,6 @@ class ServiceOrchestrator:
             url = f"http://localhost:{port}"
         else:
             url = ""
-        print("url", url)
         lab = LabService(
             name=name,
             version=version,
@@ -237,54 +250,63 @@ class ServiceOrchestrator:
             lab: The lab to deploy the automations for.
             automation: The automation to deploy.
         """
-        if automation == Automation.CREATE_USER_AND_API_KEY:
-            function = (
-                Path(__file__).parent / "playwright" / "functions" / f"{automation}.py"
+        function = (
+            Path(__file__).parent / "playwright" / "functions" / f"{automation}.py"
+        )
+        if not function.exists():
+            return Response(
+                error=True,
+                message=f"Function {automation} not found. This should not happen.",
+                data=None,
             )
-            if not function.exists():
+        automation_dir = Path(__file__).parent / "playwright"
+
+        env_vars = {
+            "APPWRITE_URL": lab.url,
+            "APPWRITE_PROJECT_ID": lab.project_id,
+            "APPWRITE_ADMIN_EMAIL": lab.admin_email,
+            "APPWRITE_ADMIN_PASSWORD": lab.admin_password,
+        }
+        envs = " ".join([f"{key}={value}" for key, value in env_vars.items()])
+        with tempfile.TemporaryDirectory() as temp_dir:
+            shutil.copytree(automation_dir, temp_dir / "playwright")
+            function = Path(temp_dir) / "playwright" / "functions" / f"{automation}.py"
+            cmd = [
+                self.util,
+                "run",
+                "--network",
+                "host",
+                "--rm",
+                "-v",
+                f"{temp_dir}:/playwright",
+                *[f"-e {key}={value}" for key, value in env_vars.items()],
+                PLAYWRIGHT_IMAGE,
+                "bash",
+                "-c",
+                f"pip install playwright asyncio && {envs} python /playwright/function.py",
+            ]
+            cmd_res = self._run_cmd_safely(cmd)
+            if type(cmd_res) is Response and cmd_res.error:
+                cmd_res.message = (
+                    f"Failed to deploy playwright automation {automation}."
+                )
+                return cmd_res
+            # If successful, any data should be mounted as result.txt
+            result_file = Path(temp_dir) / "result.txt"
+            if result_file.exists():
+                with open(result_file, "r") as f:
+                    data = f.read()
+                    return Response(
+                        error=False,
+                        message=f"Playwright automation{automation} deployed successfully.",
+                        data=data,
+                    )
+            else:
                 return Response(
                     error=True,
-                    message=f"Function {automation} not found. This should not happen.",
+                    message=f"Playwright automation {automation} deployed successfully, but no result file found.",
                     data=None,
                 )
-            env_vars = {
-                "APPWRITE_URL": lab.url,
-                "APPWRITE_PROJECT_ID": lab.project_id,
-                "APPWRITE_ADMIN_EMAIL": lab.admin_email,
-                "APPWRITE_ADMIN_PASSWORD": lab.admin_password,
-            }
-            envs = " ".join([f"{key}={value}" for key, value in env_vars.items()])
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_file = Path(temp_dir) / "function.py"
-                shutil.copy(function, temp_file)
-                cmd = [
-                    self.util,
-                    "run",
-                    "--network",
-                    "--rm",
-                    "host",
-                    "-v",
-                    f"{temp_dir}:/playwright",
-                    *[f"-e {key}={value}" for key, value in env_vars.items()],
-                    PLAYWRIGHT_IMAGE,
-                    "bash",
-                    "-c",
-                    f"pip install playwright asyncio && {envs} python /playwright/function.py",
-                ]
-                cmd_res = self._run_cmd_safely(cmd)
-                if type(cmd_res) is Response and cmd_res.error:
-                    cmd_res.message = (
-                        f"Failed to deploy playwright automation {automation}."
-                    )
-                    return cmd_res
-                # If successful, any data should be mounted as result.txt
-                result_file = Path(temp_dir) / "result.txt"
-                if result_file.exists():
-                    with open(result_file, "r") as f:
-                        data = f.read()
-                        return data
-                else:
-                    return None
 
     def teardown_service(self, name: str):
         """
@@ -312,6 +334,60 @@ class ServiceOrchestrator:
 
         return Response(
             message=f"Lab '{name}' stopped.",
+            data=None,
+        )
+
+    def sync_appwrite_config(
+        self,
+        lab: LabService,
+        appwrite_json: str | None = None,
+        sync_type: SyncType = SyncType.ALL,
+    ):
+        """
+        Sync the appwrite.json config into a lab.
+
+        Args:
+            lab: The lab to sync the config for.
+            appwrite_json: The appwrite.json config to sync.
+            sync_type: The type of config to sync. Defaults to all.
+        """
+        if not os.path.exists(appwrite_json):
+            return Response(
+                error=True,
+                message=f"Appwrite config file not found: {appwrite_json}",
+                data=None,
+            )
+        try:
+            ajson: dict = load_config(appwrite_json)
+        except Exception as e:
+            return Response(
+                error=True,
+                message=f"Failed to load appwrite config: {e}",
+                data=None,
+            )
+        proj_name = ajson.get("projectName")
+        aw_login = f"appwrite login --endpoint {lab.url} --email {lab.admin_email} --password {lab.admin_password}"
+        acli_push = f"yes YES | appwrite push {sync_type.value}"
+        cmd = [
+            self.util,
+            "run",
+            "--network",
+            "host",
+            "--rm",
+            "-v",
+            f"{appwrite_json}:/work/appwrite.json",
+            APPWRITE_CLI_IMAGE,
+            "bash",
+            "-c",
+            f"{aw_login} && {acli_push}",
+        ]
+        cmd_res = self._run_cmd_safely(cmd)
+        if type(cmd_res) is Response and cmd_res.error:
+            cmd_res.message = f"Failed to sync appwrite config: {cmd_res.message}"
+            return cmd_res
+        return Response(
+            error=False,
+            message="Appwrite config synced.",
             data=None,
         )
 

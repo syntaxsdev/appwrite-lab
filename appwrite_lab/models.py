@@ -17,6 +17,16 @@ class Automation(StrEnum):
     CREATE_ROLE = "create_role"
 
 
+class SyncType(StrEnum):
+    ALL = "all"
+    CONFIG = "settings"
+    COLLECTIONS = "collections"
+    BUCKETS = "buckets"
+    FUNCTIONS = "functions"
+    TEAMS = "teams"
+    TOPICS = "topics"
+
+
 @dataclass
 class LabService:
     name: str

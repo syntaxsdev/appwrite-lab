@@ -4,6 +4,8 @@ import subprocess
 import json
 import tempfile
 from pathlib import Path
+
+from appwrite_lab.automations.models import BaseVarModel
 from ._state import State
 from dataclasses import dataclass
 from .models import LabService, Automation, SyncType
@@ -225,7 +227,7 @@ class ServiceOrchestrator:
                 f"Lab '{name}' deployed, but failed to create API key."
             )
             return api_key_res
-        lab.api_key = api_key_res
+        lab.api_key = api_key_res.data
 
         stored_labs: dict = self.state.get("labs", {}).copy()
         stored_labs[name] = asdict(lab)
@@ -238,7 +240,10 @@ class ServiceOrchestrator:
         )
 
     def deploy_playwright_automation(
-        self, lab: LabService, automation: Automation
+        self,
+        lab: LabService,
+        automation: Automation,
+        model: BaseVarModel = None,
     ) -> str | Response:
         """
         Deploy playwright automations on a lab (very few automations supported).
@@ -251,6 +256,7 @@ class ServiceOrchestrator:
         Args:
             lab: The lab to deploy the automations for.
             automation: The automation to deploy.
+            model: The model to use for the automation.
         """
         automation = automation.value
         function = (
@@ -263,12 +269,14 @@ class ServiceOrchestrator:
                 data=None,
             )
         automation_dir = Path(__file__).parent / "automations"
-
+        container_work_dir = "/work/automations"
         env_vars = {
             "APPWRITE_URL": lab.url,
             "APPWRITE_PROJECT_ID": lab.project_id,
             "APPWRITE_ADMIN_EMAIL": lab.admin_email,
             "APPWRITE_ADMIN_PASSWORD": lab.admin_password,
+            "WORK_DIR": container_work_dir,
+            **(model.as_dict() if model else {}),
         }
         envs = " ".join([f"{key}={value}" for key, value in env_vars.items()])
         docker_env_args = []
@@ -284,8 +292,10 @@ class ServiceOrchestrator:
                 "--network",
                 "host",
                 # "--rm",
+                "-u",
+                f"{os.getuid()}:{os.getgid()}",
                 "-v",
-                f"{temp_dir}:/work/automations",
+                f"{temp_dir}:{container_work_dir}",
                 *docker_env_args,
                 APPWRITE_PLAYWRIGHT_IMAGE,
                 "python",
@@ -349,6 +359,7 @@ class ServiceOrchestrator:
         lab: LabService,
         appwrite_json: str | None = None,
         sync_type: SyncType = SyncType.ALL,
+        env_vars: dict[str, str] = {},
     ):
         """
         Sync the appwrite.json config into a lab.
@@ -357,6 +368,7 @@ class ServiceOrchestrator:
             lab: The lab to sync the config for.
             appwrite_json: The appwrite.json config to sync.
             sync_type: The type of config to sync. Defaults to all.
+            env_vars: The environment variables to set.
         """
         if not os.path.exists(appwrite_json):
             return Response(
@@ -381,7 +393,7 @@ class ServiceOrchestrator:
             "run",
             "--network",
             "host",
-            "--rm",
+            # "--rm",
             "-v",
             f"{appwrite_json}:/work/appwrite.json",
             APPWRITE_CLI_IMAGE,

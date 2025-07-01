@@ -10,14 +10,14 @@ from .models import LabService, Automation, SyncType
 from dotenv import dotenv_values
 from appwrite_lab.utils import console
 from .utils import is_cli, load_config
-from .config import PLAYWRIGHT_IMAGE, APPWRITE_CLI_IMAGE
+from .config import APPWRITE_CLI_IMAGE, APPWRITE_PLAYWRIGHT_IMAGE
 from dataclasses import asdict
 
 
 @dataclass
 class Response:
     message: str
-    data: any
+    data: any = None
     error: bool = False
 
     def __post_init__(self):
@@ -50,12 +50,14 @@ class ServiceOrchestrator:
         labs: dict = self.state.get("labs", {})
         return [LabService(**lab) for lab in labs.values()]
 
-    def get_lab(self, name: str):
+    def get_lab(self, name: str) -> LabService | None:
         """
         Get a lab by name.
         """
         labs: dict = self.state.get("labs", {})
-        return LabService(**labs.get(name, {}))
+        if not (lab := labs.get(name, None)):
+            return None
+        return LabService(**lab)
 
     def get_formatted_labs(self, collapsed: bool = False):
         """
@@ -236,7 +238,7 @@ class ServiceOrchestrator:
         )
 
     def deploy_playwright_automation(
-        self, lab: LabService, automation: str
+        self, lab: LabService, automation: Automation
     ) -> str | Response:
         """
         Deploy playwright automations on a lab (very few automations supported).
@@ -250,8 +252,9 @@ class ServiceOrchestrator:
             lab: The lab to deploy the automations for.
             automation: The automation to deploy.
         """
+        automation = automation.value
         function = (
-            Path(__file__).parent / "playwright" / "functions" / f"{automation}.py"
+            Path(__file__).parent / "automations" / "functions" / f"{automation}.py"
         )
         if not function.exists():
             return Response(
@@ -259,7 +262,7 @@ class ServiceOrchestrator:
                 message=f"Function {automation} not found. This should not happen.",
                 data=None,
             )
-        automation_dir = Path(__file__).parent / "playwright"
+        automation_dir = Path(__file__).parent / "automations"
 
         env_vars = {
             "APPWRITE_URL": lab.url,
@@ -268,22 +271,26 @@ class ServiceOrchestrator:
             "APPWRITE_ADMIN_PASSWORD": lab.admin_password,
         }
         envs = " ".join([f"{key}={value}" for key, value in env_vars.items()])
+        docker_env_args = []
+        for key, value in env_vars.items():
+            docker_env_args.extend(["-e", f"{key}={value}"])
         with tempfile.TemporaryDirectory() as temp_dir:
-            shutil.copytree(automation_dir, temp_dir / "playwright")
-            function = Path(temp_dir) / "playwright" / "functions" / f"{automation}.py"
+            shutil.copytree(automation_dir, temp_dir, dirs_exist_ok=True)
+            function = Path(temp_dir) / "automations" / "functions" / f"{automation}.py"
+
             cmd = [
                 self.util,
                 "run",
                 "--network",
                 "host",
-                "--rm",
+                # "--rm",
                 "-v",
-                f"{temp_dir}:/playwright",
-                *[f"-e {key}={value}" for key, value in env_vars.items()],
-                PLAYWRIGHT_IMAGE,
-                "bash",
-                "-c",
-                f"pip install playwright asyncio && {envs} python /playwright/function.py",
+                f"{temp_dir}:/work/automations",
+                *docker_env_args,
+                APPWRITE_PLAYWRIGHT_IMAGE,
+                "python",
+                "-m",
+                f"automations.functions.{automation}",
             ]
             cmd_res = self._run_cmd_safely(cmd)
             if type(cmd_res) is Response and cmd_res.error:
@@ -365,6 +372,7 @@ class ServiceOrchestrator:
                 message=f"Failed to load appwrite config: {e}",
                 data=None,
             )
+        #
         proj_name = ajson.get("projectName")
         aw_login = f"appwrite login --endpoint {lab.url} --email {lab.admin_email} --password {lab.admin_password}"
         acli_push = f"yes YES | appwrite push {sync_type.value}"
@@ -453,7 +461,7 @@ def run_cmd(cmd: list[str], envs: dict[str, str] | None = None):
         )
         if result.returncode != 0:
             raise OrchestratorError(
-                f"An error occured running a command: {result.stdout}"
+                f"An error occured running a command: {result.stderr}"
             )
         return result
     except Exception as e:

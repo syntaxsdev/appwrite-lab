@@ -1,5 +1,6 @@
 from ._state import State
-from ._orchestrator import ServiceOrchestrator
+from ._orchestrator import ServiceOrchestrator, Response
+from .models import Automation
 from pathlib import Path
 import os
 
@@ -31,14 +32,20 @@ class Labs:
     ):
         lab = self.orchestrator.get_lab(name)
         if not lab:
-            return False
+            return Response(
+                error=True,
+                message=f"Lab {name} not found",
+            )
         if appwrite_json == "appwrite.json":
             appwrite_json = Path.cwd() / appwrite_json
 
         if not os.path.exists(appwrite_json):
-            return False
-
-        return self.orchestrator.sync_appwrite_config(lab, appwrite_json, sync_type)
+            return Response(
+                error=True,
+                message="Appwrite config file not found in current directory.",
+            )
+        self.orchestrator.deploy_playwright_automation(lab, Automation.CREATE_PROJECT)
+        # return self.orchestrator.sync_appwrite_config(lab, appwrite_json, sync_type)
 
     def stop(self, name: str):
         return self.orchestrator.teardown_service(name)

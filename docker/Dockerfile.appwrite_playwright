@@ -2,4 +2,6 @@ FROM mcr.microsoft.com/playwright/python:v1.52.0-jammy
 
 WORKDIR /work
 
-RUN pip install appwrite playwright && playwright install
+RUN curl -sL https://appwrite.io/cli/install.sh | bash && \
+    pip install appwrite playwright && \
+    playwright install

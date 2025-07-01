@@ -8,6 +8,7 @@ class CommandExecutor:
     envs: dict[str, str] | None = None
 
     def run(self):
+        print(self.cmd)
         return run_cmd(self.cmd, self.envs)
 
     def __call__(self):
@@ -37,7 +38,7 @@ class AppwriteCLI:
             "--password",
             password,
         ]
-        return CommandExecutor(cmd)
+        return CommandExecutor(cmd, None)
 
     def get_project(self, project_id: str) -> CommandExecutor:
         """

@@ -11,7 +11,7 @@ labs = get_global_labs()
 @list_menu.command(name="labs")
 def get_labs():
     """List all ephemeral Appwrite instances."""
-    headers, pods = labs.orchestrator.get_labs(collapsed=True)
+    headers, pods = labs.orchestrator.get_formatted_labs(collapsed=True)
     print_table(pods, headers)
 
 

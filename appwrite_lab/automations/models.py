@@ -1,5 +1,19 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import uuid
+
+
+@dataclass
+class BaseVarModel:
+    def as_dict(self):
+        """Convert the model to a dictionary."""
+        temp = asdict(self)
+        # uppercase all keys
+        return {k.upper(): v for k, v in temp.items()}
+
+
+@dataclass
+class AppwriteProjectCreation(BaseVarModel):
+    appwrite_project_name: str
 
 
 @dataclass

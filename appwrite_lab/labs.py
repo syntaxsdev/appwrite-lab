@@ -1,7 +1,11 @@
+from appwrite_lab.utils import load_config
 from ._state import State
 from ._orchestrator import ServiceOrchestrator, Response
 from .models import Automation
+from appwrite_lab.automations.models import AppwriteProjectCreation
+
 from pathlib import Path
+
 import os
 
 
@@ -44,8 +48,25 @@ class Labs:
                 error=True,
                 message="Appwrite config file not found in current directory.",
             )
-        self.orchestrator.deploy_playwright_automation(lab, Automation.CREATE_PROJECT)
-        # return self.orchestrator.sync_appwrite_config(lab, appwrite_json, sync_type)
+
+        try:
+            ajson: dict = load_config(appwrite_json)
+            proj_name = ajson.get("projectName")
+            if not proj_name:
+                return Response(
+                    error=True,
+                    message="Appwrite config file does not define a project name.",
+                )
+            vars = AppwriteProjectCreation(appwrite_project_name=proj_name)
+        except Exception as e:
+            return Response(
+                error=True,
+                message=f"Failed to load appwrite config: {e}",
+            )
+
+        self.orchestrator.deploy_playwright_automation(
+            lab, Automation.CREATE_PROJECT, model=vars
+        )
 
     def stop(self, name: str):
         return self.orchestrator.teardown_service(name)

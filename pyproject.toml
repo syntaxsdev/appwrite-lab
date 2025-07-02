@@ -12,8 +12,7 @@ dependencies = ["playwright", "typer>=0.16.0", "python-dotenv>=1.1.0"]
 license = "MIT"
 
 [tool.setuptools]
-packages = ["appwrite_lab"]
-package-data = { "appwrite_lab" = ["templates/**"] }
+packages = { find = { where = ["."] } }
 
 [project.scripts]
 appwrite-lab = "appwrite_lab.cli.entry:app"

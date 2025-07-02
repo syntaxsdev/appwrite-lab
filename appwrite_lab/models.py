@@ -7,6 +7,7 @@ import string
 class Automation(StrEnum):
     CREATE_USER_AND_API_KEY = "create_user_and_api_key"
     CREATE_API_KEY = "create_api_key"
+    SYNC_PROJECT = "sync_project"
     CREATE_USER = "create_user"
     CREATE_PROJECT = "create_project"
     CREATE_DATABASE = "create_database"
@@ -15,6 +16,16 @@ class Automation(StrEnum):
     CREATE_FUNCTION = "create_function"
     # CREATE_TRIGGER = "create_trigger"
     CREATE_ROLE = "create_role"
+
+
+class SyncType(StrEnum):
+    ALL = "all"
+    CONFIG = "settings"
+    COLLECTIONS = "collections"
+    BUCKETS = "buckets"
+    FUNCTIONS = "functions"
+    TEAMS = "teams"
+    TOPICS = "topics"
 
 
 @dataclass

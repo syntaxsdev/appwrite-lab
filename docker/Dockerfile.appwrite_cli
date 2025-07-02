@@ -1,0 +1,6 @@
+FROM node:20-slim
+
+WORKDIR /work
+
+RUN npm install -g appwrite-cli
+

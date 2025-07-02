@@ -4,20 +4,22 @@ import subprocess
 import json
 import tempfile
 from pathlib import Path
+
+from appwrite_lab.automations.models import BaseVarModel
 from ._state import State
 from dataclasses import dataclass
-from .models import LabService, Automation
+from .models import LabService, Automation, SyncType
 from dotenv import dotenv_values
 from appwrite_lab.utils import console
-from .utils import is_cli
-from .config import PLAYWRIGHT_IMAGE
+from .utils import is_cli, load_config
+from .config import APPWRITE_CLI_IMAGE, APPWRITE_PLAYWRIGHT_IMAGE
 from dataclasses import asdict
 
 
 @dataclass
 class Response:
     message: str
-    data: any
+    data: any = None
     error: bool = False
 
     def __post_init__(self):
@@ -43,7 +45,23 @@ class ServiceOrchestrator:
             Path(__file__).parent / "templates" / "environment" / "dotenv"
         )
 
-    def get_labs(self, collapsed: bool = False):
+    def get_labs(self):
+        """
+        Get all labs.
+        """
+        labs: dict = self.state.get("labs", {})
+        return [LabService(**lab) for lab in labs.values()]
+
+    def get_lab(self, name: str) -> LabService | None:
+        """
+        Get a lab by name.
+        """
+        labs: dict = self.state.get("labs", {})
+        if not (lab := labs.get(name, None)):
+            return None
+        return LabService(**lab)
+
+    def get_formatted_labs(self, collapsed: bool = False):
         """
         Get all labs.
         """
@@ -192,7 +210,6 @@ class ServiceOrchestrator:
             url = f"http://localhost:{port}"
         else:
             url = ""
-        print("url", url)
         lab = LabService(
             name=name,
             version=version,
@@ -210,7 +227,7 @@ class ServiceOrchestrator:
                 f"Lab '{name}' deployed, but failed to create API key."
             )
             return api_key_res
-        lab.api_key = api_key_res
+        lab.api_key = api_key_res.data
 
         stored_labs: dict = self.state.get("labs", {}).copy()
         stored_labs[name] = asdict(lab)
@@ -223,7 +240,11 @@ class ServiceOrchestrator:
         )
 
     def deploy_playwright_automation(
-        self, lab: LabService, automation: str
+        self,
+        lab: LabService,
+        automation: Automation,
+        model: BaseVarModel = None,
+        args: list[str] = [],
     ) -> str | Response:
         """
         Deploy playwright automations on a lab (very few automations supported).
@@ -236,55 +257,69 @@ class ServiceOrchestrator:
         Args:
             lab: The lab to deploy the automations for.
             automation: The automation to deploy.
+            model: The model to use for the automation.
         """
-        if automation == Automation.CREATE_USER_AND_API_KEY:
-            function = (
-                Path(__file__).parent / "playwright" / "functions" / f"{automation}.py"
+        automation = automation.value
+        function = (
+            Path(__file__).parent / "automations" / "functions" / f"{automation}.py"
+        )
+        if not function.exists():
+            return Response(
+                error=True,
+                message=f"Function {automation} not found. This should not happen.",
+                data=None,
             )
-            if not function.exists():
-                return Response(
-                    error=True,
-                    message=f"Function {automation} not found. This should not happen.",
-                    data=None,
+        automation_dir = Path(__file__).parent / "automations"
+        container_work_dir = "/work/automations"
+        env_vars = {
+            "APPWRITE_URL": lab.url,
+            "APPWRITE_PROJECT_ID": lab.project_id,
+            "APPWRITE_ADMIN_EMAIL": lab.admin_email,
+            "APPWRITE_ADMIN_PASSWORD": lab.admin_password,
+            "HOME": container_work_dir,
+            **(model.as_dict_with_prefix("APPWRITE") if model else {}),
+        }
+        envs = " ".join([f"{key}={value}" for key, value in env_vars.items()])
+        docker_env_args = []
+        for key, value in env_vars.items():
+            docker_env_args.extend(["-e", f"{key}={value}"])
+        with tempfile.TemporaryDirectory() as temp_dir:
+            shutil.copytree(automation_dir, temp_dir, dirs_exist_ok=True)
+            function = Path(temp_dir) / "automations" / "functions" / f"{automation}.py"
+
+            cmd = [
+                self.util,
+                "run",
+                "--network",
+                "host",
+                # "--rm",
+                "-u",
+                f"{os.getuid()}:{os.getgid()}",
+                "-v",
+                f"{temp_dir}:{container_work_dir}",
+                *args,
+                *docker_env_args,
+                APPWRITE_PLAYWRIGHT_IMAGE,
+                "python",
+                "-m",
+                f"automations.functions.{automation}",
+            ]
+            cmd_res = self._run_cmd_safely(cmd)
+            if type(cmd_res) is Response and cmd_res.error:
+                cmd_res.message = (
+                    f"Failed to deploy playwright automation {automation}."
                 )
-            env_vars = {
-                "APPWRITE_URL": lab.url,
-                "APPWRITE_PROJECT_ID": lab.project_id,
-                "APPWRITE_ADMIN_EMAIL": lab.admin_email,
-                "APPWRITE_ADMIN_PASSWORD": lab.admin_password,
-            }
-            envs = " ".join([f"{key}={value}" for key, value in env_vars.items()])
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_file = Path(temp_dir) / "function.py"
-                shutil.copy(function, temp_file)
-                cmd = [
-                    self.util,
-                    "run",
-                    "--network",
-                    "--rm",
-                    "host",
-                    "-v",
-                    f"{temp_dir}:/playwright",
-                    *[f"-e {key}={value}" for key, value in env_vars.items()],
-                    PLAYWRIGHT_IMAGE,
-                    "bash",
-                    "-c",
-                    f"pip install playwright asyncio && {envs} python /playwright/function.py",
-                ]
-                cmd_res = self._run_cmd_safely(cmd)
-                if type(cmd_res) is Response and cmd_res.error:
-                    cmd_res.message = (
-                        f"Failed to deploy playwright automation {automation}."
+                return cmd_res
+            # If successful, any data should be mounted as result.txt
+            result_file = Path(temp_dir) / "result.txt"
+            if result_file.exists():
+                with open(result_file, "r") as f:
+                    data = f.read()
+                    return Response(
+                        error=False,
+                        message=f"Playwright automation{automation} deployed successfully.",
+                        data=data,
                     )
-                    return cmd_res
-                # If successful, any data should be mounted as result.txt
-                result_file = Path(temp_dir) / "result.txt"
-                if result_file.exists():
-                    with open(result_file, "r") as f:
-                        data = f.read()
-                        return data
-                else:
-                    return None
 
     def teardown_service(self, name: str):
         """
@@ -377,7 +412,7 @@ def run_cmd(cmd: list[str], envs: dict[str, str] | None = None):
         )
         if result.returncode != 0:
             raise OrchestratorError(
-                f"An error occured running a command: {result.stdout}"
+                f"An error occured running a command: {result.stderr}"
             )
         return result
     except Exception as e:

@@ -1,5 +1,6 @@
 import os
 import platform
+import json
 
 from rich.console import Console
 from rich.table import Table
@@ -45,8 +46,25 @@ def get_state_path():
 
 
 def set_cli_true():
+    """Set the CLI setting to true."""
     global is_cli_setting
     is_cli_setting = True
+
+
+def load_config(appwrite_json: str):
+    """
+    Load the appwrite.json config.
+
+    Args:
+        appwrite_json: The path to the appwrite.json config.
+
+    Returns:
+        The appwrite.json config.
+    """
+    if not os.path.exists(appwrite_json):
+        raise FileNotFoundError(f"Appwrite config file not found: {appwrite_json}")
+    with open(appwrite_json, "r") as f:
+        return json.load(f)
 
 
 @property

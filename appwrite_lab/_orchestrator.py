@@ -350,63 +350,6 @@ class ServiceOrchestrator:
             data=None,
         )
 
-    def sync_appwrite_config(
-        self,
-        lab: LabService,
-        appwrite_json: str | None = None,
-        sync_type: SyncType = SyncType.ALL,
-        env_vars: dict[str, str] = {},
-    ):
-        """
-        Sync the appwrite.json config into a lab.
-
-        Args:
-            lab: The lab to sync the config for.
-            appwrite_json: The appwrite.json config to sync.
-            sync_type: The type of config to sync. Defaults to all.
-            env_vars: The environment variables to set.
-        """
-        if not os.path.exists(appwrite_json):
-            return Response(
-                error=True,
-                message=f"Appwrite config file not found: {appwrite_json}",
-                data=None,
-            )
-        try:
-            ajson: dict = load_config(appwrite_json)
-        except Exception as e:
-            return Response(
-                error=True,
-                message=f"Failed to load appwrite config: {e}",
-                data=None,
-            )
-        #
-        proj_name = ajson.get("projectName")
-        aw_login = f"appwrite login --endpoint {lab.url} --email {lab.admin_email} --password {lab.admin_password}"
-        acli_push = f"yes YES | appwrite push {sync_type.value}"
-        cmd = [
-            self.util,
-            "run",
-            "--network",
-            "host",
-            # "--rm",
-            "-v",
-            f"{appwrite_json}:/work/appwrite.json",
-            APPWRITE_CLI_IMAGE,
-            "bash",
-            "-c",
-            f"{aw_login} && {acli_push}",
-        ]
-        cmd_res = self._run_cmd_safely(cmd)
-        if type(cmd_res) is Response and cmd_res.error:
-            cmd_res.message = f"Failed to sync appwrite config: {cmd_res.message}"
-            return cmd_res
-        return Response(
-            error=False,
-            message="Appwrite config synced.",
-            data=None,
-        )
-
     def check_pod_status(self, pod_name: str):
         """
         Check the status of a pod.

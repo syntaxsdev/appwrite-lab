@@ -3,6 +3,7 @@ import asyncio
 from playwright.async_api import Playwright, async_playwright
 from automations.common import AppwriteCLI
 from automations.utils import PlaywrightAutomationError
+from automations.models import AppwriteProjectCreation, AppwriteWebAuth
 
 
 async def create_project(playwright: Playwright) -> bool:
@@ -12,15 +13,17 @@ async def create_project(playwright: Playwright) -> bool:
     Args:
         playwright: Playwright instance.
     """
-    url = os.getenv("APPWRITE_URL")
-    project_name = os.getenv("APPWRITE_PROJECT_NAME")
-    project_id = os.getenv("APPWRITE_PROJECT_ID")
-    admin_email = os.getenv("APPWRITE_ADMIN_EMAIL")
-    admin_password = os.getenv("APPWRITE_ADMIN_PASSWORD")
-
     acli = AppwriteCLI()
-    print(url, project_name, project_id, admin_email, admin_password)
-    login_exc = acli.login(url, admin_email, admin_password)
+    auth = AppwriteWebAuth.from_env()
+    vars = AppwriteProjectCreation.from_env()
+
+    project_name = vars.project_name
+    project_id = vars.project_id
+    login_exc = acli.login(
+        f"{auth.url}/v1",
+        auth.admin_email,
+        auth.admin_password,
+    )
     get_project_exc = acli.get_project(project_id)
 
     login_res = login_exc.run()
@@ -31,27 +34,28 @@ async def create_project(playwright: Playwright) -> bool:
 
     proj_res = get_project_exc.run()
     if proj_res.returncode == 0:
-        return True
+        print("Project already exists")
+    else:
+        browser = await playwright.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
+        await page.goto(f"{auth.url}/console/")
+        # Login (abstract later)
+        await page.get_by_role("textbox", name="Email").fill(auth.admin_email)
+        await page.get_by_role("textbox", name="Password").fill(auth.admin_password)
+        await page.get_by_role("button", name="Sign in").click()
 
-    browser = await playwright.chromium.launch(headless=True)
-    context = await browser.new_context()
-    page = await context.new_page()
-    await page.goto(f"{url}/console/")
-    # Login (abstract later)
-    await page.get_by_role("textbox", name="Email").fill(admin_email)
-    await page.get_by_role("textbox", name="Password").fill(admin_password)
-    await page.get_by_role("button", name="Sign in").click()
+        # Create project (abstract later)
+        await page.get_by_role("button", name="Create project").click()
+        await page.get_by_role("textbox", name="Name").fill(project_name)
+        await page.get_by_role("button", name="Project ID").click()
+        await page.get_by_role("textbox", name="Enter ID").fill(project_id)
+        await page.get_by_role("button", name="Create", exact=True).click()
 
-    # Create project (abstract later)
-    await page.get_by_role("button", name="Create project").click()
-    await page.get_by_role("textbox", name="Name").fill(project_name)
-    await page.get_by_role("button", name="Project ID").click()
-    await page.get_by_role("textbox", name="Enter ID").fill(project_id)
-    await page.get_by_role("button", name="Create", exact=True).click()
-
-    # Cleanup
-    await context.close()
-    await browser.close()
+        # Cleanup
+        await context.close()
+        await browser.close()
+        print("Project created")
 
 
 async def main():

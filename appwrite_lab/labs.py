@@ -2,7 +2,7 @@ from appwrite_lab.utils import load_config
 from ._state import State
 from ._orchestrator import ServiceOrchestrator, Response
 from .models import Automation
-from appwrite_lab.automations.models import AppwriteProjectCreation
+from appwrite_lab.automations.models import AppwriteProjectCreation, AppwriteSyncProject
 
 from pathlib import Path
 
@@ -52,20 +52,30 @@ class Labs:
         try:
             ajson: dict = load_config(appwrite_json)
             proj_name = ajson.get("projectName")
+            proj_id = ajson.get("projectId")
             if not proj_name:
                 return Response(
                     error=True,
                     message="Appwrite config file does not define a project name.",
                 )
-            vars = AppwriteProjectCreation(appwrite_project_name=proj_name)
+            vars = AppwriteProjectCreation(
+                project_name=proj_name,
+                project_id=proj_id,
+            )
         except Exception as e:
             return Response(
                 error=True,
                 message=f"Failed to load appwrite config: {e}",
             )
-
+        addn_args = ["-v", f"{appwrite_json}:/work/appwrite.json"]
         self.orchestrator.deploy_playwright_automation(
-            lab, Automation.CREATE_PROJECT, model=vars
+            lab, Automation.CREATE_PROJECT, model=vars, args=addn_args
+        )
+        self.orchestrator.deploy_playwright_automation(
+            lab,
+            Automation.SYNC_PROJECT,
+            model=AppwriteSyncProject(sync_type),
+            args=addn_args,
         )
 
     def stop(self, name: str):

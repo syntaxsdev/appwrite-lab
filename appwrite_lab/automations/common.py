@@ -8,7 +8,6 @@ class CommandExecutor:
     envs: dict[str, str] | None = None
 
     def run(self):
-        print(self.cmd)
         return run_cmd(self.cmd, self.envs)
 
     def __call__(self):
@@ -50,6 +49,13 @@ class AppwriteCLI:
         cmd = ["appwrite", "projects", "get", "--project-id", project_id]
         return CommandExecutor(cmd)
 
+    def sync_project(self, resource: str) -> CommandExecutor:
+        """
+        Sync a project from Appwrite.
+        """
+        cmd = ["bash", "-c", f"yes YES | appwrite push {resource}"]
+        return CommandExecutor(cmd)
+
 
 def execute_same_shell(*execs: CommandExecutor) -> list[str]:
     """
@@ -66,7 +72,7 @@ def execute_same_shell(*execs: CommandExecutor) -> list[str]:
             env_str = env_dict_to_str(exc.envs)
             cmds.insert(0, env_str)
         all_cmds.append(" ".join(cmds))
-    
+
     # Join all commands with && to run in same shell
     combined_cmd = " && ".join(all_cmds)
     return run_cmd(["bash", "-c", combined_cmd])

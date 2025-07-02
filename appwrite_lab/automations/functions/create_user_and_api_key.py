@@ -20,7 +20,7 @@ async def create_user_and_api_key(playwright: Playwright) -> str:
     project_id = os.getenv("APPWRITE_PROJECT_ID")
     admin_email = os.getenv("APPWRITE_ADMIN_EMAIL")
     admin_password = os.getenv("APPWRITE_ADMIN_PASSWORD")
-    work_dir = os.getenv("WORK_DIR")
+    work_dir = os.getenv("HOME")
 
     browser = await playwright.chromium.launch(headless=True)
     context = await browser.new_context()

@@ -244,6 +244,7 @@ class ServiceOrchestrator:
         lab: LabService,
         automation: Automation,
         model: BaseVarModel = None,
+        args: list[str] = [],
     ) -> str | Response:
         """
         Deploy playwright automations on a lab (very few automations supported).
@@ -275,8 +276,8 @@ class ServiceOrchestrator:
             "APPWRITE_PROJECT_ID": lab.project_id,
             "APPWRITE_ADMIN_EMAIL": lab.admin_email,
             "APPWRITE_ADMIN_PASSWORD": lab.admin_password,
-            "WORK_DIR": container_work_dir,
-            **(model.as_dict() if model else {}),
+            "HOME": container_work_dir,
+            **(model.as_dict_with_prefix("APPWRITE") if model else {}),
         }
         envs = " ".join([f"{key}={value}" for key, value in env_vars.items()])
         docker_env_args = []
@@ -296,6 +297,7 @@ class ServiceOrchestrator:
                 f"{os.getuid()}:{os.getgid()}",
                 "-v",
                 f"{temp_dir}:{container_work_dir}",
+                *args,
                 *docker_env_args,
                 APPWRITE_PLAYWRIGHT_IMAGE,
                 "python",
@@ -318,12 +320,6 @@ class ServiceOrchestrator:
                         message=f"Playwright automation{automation} deployed successfully.",
                         data=data,
                     )
-            else:
-                return Response(
-                    error=True,
-                    message=f"Playwright automation {automation} deployed successfully, but no result file found.",
-                    data=None,
-                )
 
     def teardown_service(self, name: str):
         """

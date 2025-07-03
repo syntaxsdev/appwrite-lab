@@ -13,6 +13,10 @@ license = "MIT"
 
 [tool.setuptools]
 packages = { find = { where = ["."] } }
+include-package-data = true
+
+[tool.setuptools.package-data]
+appwrite_lab = ["templates/**/*"]
 
 [project.scripts]
 appwrite-lab = "appwrite_lab.cli.entry:app"

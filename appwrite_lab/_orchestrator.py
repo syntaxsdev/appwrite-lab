@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import subprocess
 import json
@@ -11,8 +12,8 @@ from dataclasses import dataclass
 from .models import LabService, Automation, SyncType
 from dotenv import dotenv_values
 from appwrite_lab.utils import console
-from .utils import is_cli, load_config
-from .config import APPWRITE_CLI_IMAGE, APPWRITE_PLAYWRIGHT_IMAGE
+from .utils import is_cli
+from .config import APPWRITE_PLAYWRIGHT_IMAGE
 from dataclasses import asdict
 
 
@@ -204,10 +205,15 @@ class ServiceOrchestrator:
 
         # Get appwrite pods
         project_pods = self.get_running_pods_by_project(name)
-        if "appwrite" in project_pods:
-            appwrite_pod = project_pods["appwrite"]
-            port = appwrite_pod["Ports"].split("/")[0]
+        if traefik_pod := project_pods.get("appwrite-traefik", None):
+            ports = traefik_pod["Ports"].split(",")
+            port = extract_port_from_pod_info(traefik_pod)
+            assert len(ports) > 1, OrchestratorError(
+                "Failed to extract port from pod info."
+            )
+            port = extract_port_from_pod_info(traefik_pod)
             url = f"http://localhost:{port}"
+            print("url", url)
         else:
             url = ""
         lab = LabService(
@@ -223,9 +229,8 @@ class ServiceOrchestrator:
             lab, Automation.CREATE_USER_AND_API_KEY
         )
         if type(api_key_res) is Response and api_key_res.error:
-            api_key_res.message = (
-                f"Lab '{name}' deployed, but failed to create API key."
-            )
+            api_key_res.message = f"Lab '{name}' deployed, but failed to create API key. Spinning down lab."
+            self.teardown_service(name)
             return api_key_res
         lab.api_key = api_key_res.data
 
@@ -292,7 +297,7 @@ class ServiceOrchestrator:
                 "run",
                 "--network",
                 "host",
-                # "--rm",
+                "--rm",
                 "-u",
                 f"{os.getuid()}:{os.getgid()}",
                 "-v",
@@ -458,3 +463,18 @@ def get_env_vars(name: str):
     Get the default environment variables.
     """
     return dotenv_values(name)
+
+
+def extract_port_from_pod_info(pod_info: dict) -> int:
+    """Extract port from pod information returned by get_running_pods_by_project.
+
+    Args:
+        pod_info: The pod information to extract the port from.
+    """
+    if "Ports" in pod_info:
+        # Handle format like "0.0.0.0:8005->80/tcp"
+        ports_str = pod_info["Ports"]
+        match = re.search(r":(\d+)->80/tcp", ports_str)
+        if match:
+            return int(match.group(1))
+    raise OrchestratorError(f"Failed to extract port from pod info: {pod_info}")

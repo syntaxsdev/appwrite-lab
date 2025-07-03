@@ -1,7 +1,7 @@
 from appwrite_lab.utils import load_config
 from ._state import State
 from ._orchestrator import ServiceOrchestrator, Response
-from .models import Automation
+from .models import Automation, LabService
 from appwrite_lab.automations.models import AppwriteProjectCreation, AppwriteSyncProject
 
 from pathlib import Path
@@ -25,11 +25,20 @@ class Labs:
         Deploy a new Appwrite lab.
 
         Args:
-            name (str): The name of the lab.
-            version (str): The version of the lab.
-            port (int): The port of the lab.
+            name: The name of the lab.
+            version: The version of the lab.
+            port: The port of the lab.
         """
         return self.orchestrator.deploy_appwrite_lab(name, version, port, meta)
+
+    def get_lab(self, name: str) -> LabService | None:
+        """
+        Get a lab by name.
+
+        Args:
+            name: The name of the lab.
+        """
+        return self.orchestrator.get_lab(name)
 
     def sync_with_appwrite_config(
         self, name: str, appwrite_json: str, sync_type: str = "all"

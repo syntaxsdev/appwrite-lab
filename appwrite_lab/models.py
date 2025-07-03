@@ -8,14 +8,13 @@ class Automation(StrEnum):
     CREATE_USER_AND_API_KEY = "create_user_and_api_key"
     CREATE_API_KEY = "create_api_key"
     SYNC_PROJECT = "sync_project"
-    CREATE_USER = "create_user"
+    # CREATE_USER = "create_user"
     CREATE_PROJECT = "create_project"
-    CREATE_DATABASE = "create_database"
-    CREATE_COLLECTION = "create_collection"
-    CREATE_DOCUMENT = "create_document"
-    CREATE_FUNCTION = "create_function"
-    # CREATE_TRIGGER = "create_trigger"
-    CREATE_ROLE = "create_role"
+    # CREATE_DATABASE = "create_database"
+    # CREATE_COLLECTION = "create_collection"
+    # CREATE_DOCUMENT = "create_document"
+    # CREATE_FUNCTION = "create_function"
+    # CREATE_ROLE = "create_role"
 
 
 class SyncType(StrEnum):

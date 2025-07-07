@@ -213,7 +213,6 @@ class ServiceOrchestrator:
             )
             port = extract_port_from_pod_info(traefik_pod)
             url = f"http://localhost:{port}"
-            print("url", url)
         else:
             url = ""
         lab = LabService(

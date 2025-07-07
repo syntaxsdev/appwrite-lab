@@ -1,26 +1,27 @@
-from playwright.async_api import Playwright, async_playwright
-from models import AppwriteUserCreation
-from functions import create_user_and_api_key
-from appwrite_lab._orchestrator import ServiceOrchestrator
+from appwrite_lab.models import LabService
+from appwrite.client import Client
+
+
+class LabContext:
+    def __init__(self, lab: LabService):
+        self.lab = lab
+        self.client = (
+            Client()
+            .set_endpoint(lab.url)
+            .set_project(lab.project_id)
+            .set_key(lab.api_key)
+        )
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
 
 class AppwriteAutomation:
-    def __init__(self, orchestrator: ServiceOrchestrator):
-        self.orchestrator = orchestrator
-        self.playwright = async_playwright()
+    def __init__(self):
+        pass
 
-    async def automate_fetch_api_key(
-        self, config: AppwriteUserCreation | None = None
-    ) -> tuple[str, AppwriteUserCreation]:
-        """Create a user and an API key for the Appwrite project.
-
-        Args:
-            config: AppwriteUserCreation object.
-                If None, a random user and project will be created
-
-        Returns:
-            tuple[str, AppwriteUserCreation]: The API key and the user configuration
-        """
-        if not config:
-            config = AppwriteUserCreation().generate()
-        api_key = await create_user_and_api_key(self.playwright, self.url, config)
-        return api_key, config
+    def create_user(self):
+        pass

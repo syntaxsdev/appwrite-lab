@@ -18,6 +18,8 @@ async def login_to_console(page: Page, url: str, admin_email: str, admin_passwor
 
 async def register_user(page: Page, url: str, admin_email: str, admin_password: str):
     """Register a new user in Appwrite."""
+    print(f"Registering user {admin_email} with password {admin_password}")
+    print(f"URL: {url}")
     await page.goto(f"{url}/console/register")
     await page.wait_for_timeout(500)
     await page.get_by_role("textbox", name="Name").fill("Test")

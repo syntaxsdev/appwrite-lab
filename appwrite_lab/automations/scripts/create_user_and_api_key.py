@@ -37,6 +37,8 @@ async def create_user_and_api_key(playwright: Playwright) -> str:
         admin_email=auth.admin_email,
         admin_password=auth.admin_password,
     )
+    await create_project_ui(page=page, project_name=None, project_id=auth.project_id)
+
     api_key = await create_api_key_ui(
         page=page, key_name=api_key_env.key_name, key_expiry=api_key_env.key_expiry
     )

@@ -1,5 +1,13 @@
-from playwright.async_api import Playwright
+from playwright.async_api import Playwright, Page, BrowserContext
 from models import AppwriteUserCreation
+
+
+async def login(page: Page, host: str, user: AppwriteUserCreation) -> Page:
+    """
+    Login to the Appwrite project.
+    """
+    page = await page.goto(f"{host}/console/login")
+    
 
 
 async def create_user_and_api_key(

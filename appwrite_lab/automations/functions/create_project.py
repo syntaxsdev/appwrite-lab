@@ -1,4 +1,3 @@
-import os
 import asyncio
 from playwright.async_api import Playwright, async_playwright
 from automations.common import AppwriteCLI

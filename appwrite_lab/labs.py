@@ -2,7 +2,10 @@ from appwrite_lab.utils import load_config
 from ._state import State
 from ._orchestrator import ServiceOrchestrator, Response
 from .models import Automation, LabService
-from appwrite_lab.automations.models import AppwriteProjectCreation, AppwriteSyncProject
+from appwrite_lab.automations.models import (
+    AppwriteProjectCreation,
+    AppwriteSyncProject,
+)
 
 from pathlib import Path
 

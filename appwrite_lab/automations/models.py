@@ -1,6 +1,7 @@
 from dataclasses import dataclass, asdict
 import uuid
 import os
+from typing import Literal
 
 
 @dataclass
@@ -44,8 +45,8 @@ class AppwriteWebAuth(BaseVarModel):
 
 @dataclass
 class AppwriteProjectCreation(BaseVarModel):
-    project_name: str
     project_id: str
+    project_name: str
 
 
 @dataclass
@@ -54,11 +55,17 @@ class AppwriteSyncProject(BaseVarModel):
 
 
 @dataclass
-class AppwriteUserCreation:
+class AppwriteAPIKeyCreation(BaseVarModel):
+    key_name: str
+    key_expiry: Literal["Never", "7 Days", "30 days", "90 days", "Year"]
+
+
+@dataclass
+class AppwriteUserCreation(BaseVarModel):
+    url: str
     admin_email: str
     admin_password: str
     project_id: str
-    project_name: str
 
     def generate(self):
         """Generate random data for model"""

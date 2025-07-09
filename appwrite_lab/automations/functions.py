@@ -28,23 +28,27 @@ async def register_user(page: Page, url: str, admin_email: str, admin_password: 
     await page.wait_for_url("**/onboarding/create-project")
 
 
-async def create_project_ui(page: Page, project_id: str, project_name: str = None):
+async def create_project_ui(
+    page: Page, project_id: str | None, project_name: str = None
+):
     """Create a project through the UI."""
     if project_name:
-        await page.get_by_role("textbox", name="Name").fill(project_name)
+        await page.get_by_role("textbox", name="Project name").fill(project_name)
     await page.get_by_role("button", name="Project ID").click()
     await page.get_by_role("textbox", name="Enter ID").fill(project_id)
     await page.get_by_role("button", name="Create").click()
 
 
-async def create_api_key_ui(page: Page, key_name: str = "api_key"):
+async def create_api_key_ui(
+    page: Page, key_expiry: str = "30 days", key_name: str = "api_key"
+):
     """Create an API key through the UI."""
     await page.get_by_role("link", name="Overview").click()
     await page.get_by_role("tab", name="API keys").click()
     await page.get_by_role("link", name="Create API key", exact=True).click()
     await page.get_by_role("textbox", name="Name").fill(key_name)
     await page.get_by_label("", exact=True).click()
-    await page.get_by_role("option", name="30 days").click()
+    await page.get_by_role("option", name=key_expiry).click()
     await page.get_by_role("button", name="Select all", exact=True).click()
     await page.get_by_role("button", name="Create").click()
 

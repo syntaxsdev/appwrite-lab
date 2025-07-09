@@ -6,10 +6,10 @@ import json
 import tempfile
 from pathlib import Path
 
-from appwrite_lab.automations.models import BaseVarModel
+from appwrite_lab.automations.models import BaseVarModel, AppwriteAPIKeyCreation
 from ._state import State
 from dataclasses import dataclass
-from .models import LabService, Automation, SyncType
+from .models import LabService, Automation, SyncType, Project
 from dotenv import dotenv_values
 from appwrite_lab.utils import console
 from .utils import is_cli
@@ -215,23 +215,31 @@ class ServiceOrchestrator:
             url = f"http://localhost:{port}"
         else:
             url = ""
+        proj_id = appwrite_config.pop("project_id", None)
+        proj_name = appwrite_config.pop("project_name", None)
+        kwargs = {
+            **appwrite_config,
+            "projects": {"default": Project(proj_id, proj_name, None)},
+        }
         lab = LabService(
             name=name,
             version=version,
             url=url,
-            **appwrite_config,
+            **kwargs,
         )
 
         lab.generate_missing_config()
         # Deploy playwright automations for creating user and API key
         api_key_res = self.deploy_playwright_automation(
-            lab, Automation.CREATE_USER_AND_API_KEY
+            lab=lab,
+            automation=Automation.CREATE_USER_AND_API_KEY,
+            model=AppwriteAPIKeyCreation(key_name="default_key", key_expiry="Never"),
         )
         if type(api_key_res) is Response and api_key_res.error:
             api_key_res.message = f"Lab '{name}' deployed, but failed to create API key. Spinning down lab."
             self.teardown_service(name)
             return api_key_res
-        lab.api_key = api_key_res.data
+        lab.projects["default"].api_key = api_key_res.data
 
         stored_labs: dict = self.state.get("labs", {}).copy()
         stored_labs[name] = asdict(lab)
@@ -247,6 +255,7 @@ class ServiceOrchestrator:
         self,
         lab: LabService,
         automation: Automation,
+        project: Project | None = None,
         model: BaseVarModel = None,
         args: list[str] = [],
     ) -> str | Response:
@@ -275,11 +284,14 @@ class ServiceOrchestrator:
             )
         automation_dir = Path(__file__).parent / "automations"
         container_work_dir = "/work/automations"
+        proj_id = project.project_id if project else lab.projects["default"].project_id
+        api_key = project.api_key if project else lab.projects["default"].api_key
         env_vars = {
             "APPWRITE_URL": lab.url,
-            "APPWRITE_PROJECT_ID": lab.project_id,
+            "APPWRITE_PROJECT_ID": proj_id,
             "APPWRITE_ADMIN_EMAIL": lab.admin_email,
             "APPWRITE_ADMIN_PASSWORD": lab.admin_password,
+            "APPWRITE_API_KEY": api_key,
             "HOME": container_work_dir,
             **(model.as_dict_with_prefix("APPWRITE") if model else {}),
         }
@@ -339,7 +351,16 @@ class ServiceOrchestrator:
                 message=f"Nothing to stop by name of '{name}'.",
                 data=None,
             )
-        cmd = [self.compose, "-p", name, "down", "-v"]
+        cmd = [
+            self.compose,
+            "-p",
+            name,
+            "down",
+            "-v",
+            "--timeout",
+            "0",
+            "--remove-orphans",
+        ]
         cmd_res = self._run_cmd_safely(cmd)
         if type(cmd_res) is Response and cmd_res.error:
             cmd_res.message = f"Failed to teardown lab {name}. \

@@ -265,7 +265,7 @@ class ServiceOrchestrator:
         """
         automation = automation.value
         function = (
-            Path(__file__).parent / "automations" / "functions" / f"{automation}.py"
+            Path(__file__).parent / "automations" / "scripts" / f"{automation}.py"
         )
         if not function.exists():
             return Response(
@@ -289,7 +289,7 @@ class ServiceOrchestrator:
             docker_env_args.extend(["-e", f"{key}={value}"])
         with tempfile.TemporaryDirectory() as temp_dir:
             shutil.copytree(automation_dir, temp_dir, dirs_exist_ok=True)
-            function = Path(temp_dir) / "automations" / "functions" / f"{automation}.py"
+            function = Path(temp_dir) / "automations" / "scripts" / f"{automation}.py"
 
             cmd = [
                 self.util,
@@ -306,7 +306,7 @@ class ServiceOrchestrator:
                 APPWRITE_PLAYWRIGHT_IMAGE,
                 "python",
                 "-m",
-                f"automations.functions.{automation}",
+                f"automations.scripts.{automation}",
             ]
             cmd_res = self._run_cmd_safely(cmd)
             if type(cmd_res) is Response and cmd_res.error:

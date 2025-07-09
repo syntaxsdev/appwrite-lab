@@ -1,60 +1,59 @@
 from playwright.async_api import Playwright, Page, BrowserContext
-from models import AppwriteUserCreation
 
 
-async def login(page: Page, host: str, user: AppwriteUserCreation) -> Page:
-    """
-    Login to the Appwrite project.
-    """
-    page = await page.goto(f"{host}/console/login")
-    
-
-
-async def create_user_and_api_key(
-    playwright: Playwright, url: str, user: AppwriteUserCreation
-) -> str:
-    """
-    Create a user and an API key for the Appwrite project.
-
-    Args:
-        playwright: Playwright instance.
-        url: Appwrite URL.
-        user: AppwriteUserCreation object.
-
-    Returns:
-        str: The API key.
-    """
-    browser = await playwright.chromium.launch(headless=False)
+async def create_browser_context(playwright: Playwright, headless: bool = True):
+    """Create a browser context for automation."""
+    browser = await playwright.chromium.launch(headless=headless)
     context = await browser.new_context()
-    page = await context.new_page()
+    return browser, context
+
+
+async def login_to_console(page: Page, url: str, admin_email: str, admin_password: str):
+    """Login to the Appwrite console."""
+    await page.goto(f"{url}/console/")
+    await page.get_by_role("textbox", name="Email").fill(admin_email)
+    await page.get_by_role("textbox", name="Password").fill(admin_password)
+    await page.get_by_role("button", name="Sign in").click()
+
+
+async def register_user(page: Page, url: str, admin_email: str, admin_password: str):
+    """Register a new user in Appwrite."""
     await page.goto(f"{url}/console/register")
     await page.wait_for_timeout(500)
     await page.get_by_role("textbox", name="Name").fill("Test")
-    await page.get_by_role("textbox", name="Email").fill(user.admin_email)
-    await page.get_by_role("textbox", name="Password").fill(user.admin_password)
+    await page.get_by_role("textbox", name="Email").fill(admin_email)
+    await page.get_by_role("textbox", name="Password").fill(admin_password)
     await page.get_by_role("button").nth(1).click()
     await page.get_by_role("button", name="Sign up").click()
     await page.wait_for_url("**/onboarding/create-project")
 
-    await page.get_by_role("button", name="Project ID").click()
-    await page.get_by_role("textbox", name="Enter ID").fill(user.project_id)
-    await page.get_by_role("button", name="Create").click()
-    await page.wait_for_url("**/get-started")
 
+async def create_project_ui(page: Page, project_id: str, project_name: str = None):
+    """Create a project through the UI."""
+    if project_name:
+        await page.get_by_role("textbox", name="Name").fill(project_name)
+    await page.get_by_role("button", name="Project ID").click()
+    await page.get_by_role("textbox", name="Enter ID").fill(project_id)
+    await page.get_by_role("button", name="Create").click()
+
+
+async def create_api_key_ui(page: Page, key_name: str = "api_key"):
+    """Create an API key through the UI."""
     await page.get_by_role("link", name="Overview").click()
     await page.get_by_role("tab", name="API keys").click()
     await page.get_by_role("link", name="Create API key", exact=True).click()
-    await page.get_by_role("textbox", name="Name").fill("api_key")
+    await page.get_by_role("textbox", name="Name").fill(key_name)
     await page.get_by_label("", exact=True).click()
     await page.get_by_role("option", name="30 days").click()
     await page.get_by_role("button", name="Select all", exact=True).click()
     await page.get_by_role("button", name="Create").click()
 
+    await page.locator(".interactiveTextContainer.svelte-numtrf").hover()
     await page.get_by_role("button", name="Show text").click()
-    api_key = await page.locator("span.code-text").text_content()
+    return await page.locator("span.code-text").text_content()
 
-    # Cleanup
+
+async def cleanup_browser(context: BrowserContext, browser):
+    """Clean up browser resources."""
     await context.close()
     await browser.close()
-
-    return api_key

@@ -1,8 +1,8 @@
 import asyncio
 from playwright.async_api import Playwright, async_playwright
-from automations.common import AppwriteCLI
-from automations.utils import PlaywrightAutomationError
-from automations.models import AppwriteSyncProject, AppwriteWebAuth
+from ..common import AppwriteCLI
+from ..utils import PlaywrightAutomationError
+from ..models import AppwriteSyncProject, AppwriteWebAuth
 
 
 async def sync_project(playwright: Playwright) -> bool:

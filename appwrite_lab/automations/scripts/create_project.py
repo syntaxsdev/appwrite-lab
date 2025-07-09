@@ -1,8 +1,9 @@
 import asyncio
 from playwright.async_api import Playwright, async_playwright
-from automations.common import AppwriteCLI
-from automations.utils import PlaywrightAutomationError
-from automations.models import AppwriteProjectCreation, AppwriteWebAuth
+from ..common import AppwriteCLI
+from ..utils import PlaywrightAutomationError
+from ..models import AppwriteProjectCreation, AppwriteWebAuth
+from ..functions import create_browser_context, login_to_console, cleanup_browser
 
 
 async def create_project(playwright: Playwright) -> bool:
@@ -35,25 +36,19 @@ async def create_project(playwright: Playwright) -> bool:
     if proj_res.returncode == 0:
         print("Project already exists")
     else:
-        browser = await playwright.chromium.launch(headless=True)
-        context = await browser.new_context()
+        browser, context = await create_browser_context(playwright, headless=True)
         page = await context.new_page()
-        await page.goto(f"{auth.url}/console/")
-        # Login (abstract later)
-        await page.get_by_role("textbox", name="Email").fill(auth.admin_email)
-        await page.get_by_role("textbox", name="Password").fill(auth.admin_password)
-        await page.get_by_role("button", name="Sign in").click()
+        
+        await login_to_console(page, auth.url, auth.admin_email, auth.admin_password)
 
-        # Create project (abstract later)
+        # Create project
         await page.get_by_role("button", name="Create project").click()
         await page.get_by_role("textbox", name="Name").fill(project_name)
         await page.get_by_role("button", name="Project ID").click()
         await page.get_by_role("textbox", name="Enter ID").fill(project_id)
         await page.get_by_role("button", name="Create", exact=True).click()
 
-        # Cleanup
-        await context.close()
-        await browser.close()
+        await cleanup_browser(context, browser)
         print("Project created")
 
 

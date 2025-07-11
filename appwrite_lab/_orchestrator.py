@@ -271,6 +271,8 @@ class ServiceOrchestrator:
             lab: The lab to deploy the automations for.
             automation: The automation to deploy.
             model: The model to use for the automation.
+            args: Extra arguments to pass to the automation.
+            project: The project to use for the automation.
         """
         automation = automation.value
         function = (
@@ -284,8 +286,11 @@ class ServiceOrchestrator:
             )
         automation_dir = Path(__file__).parent / "automations"
         container_work_dir = "/work/automations"
-        proj_id = project.project_id if project else lab.projects["default"].project_id
-        api_key = project.api_key if project else lab.projects["default"].api_key
+        project = project or Project(**lab.projects["default"])
+
+        proj_id = project.project_id
+        api_key = project.api_key
+
         env_vars = {
             "APPWRITE_URL": lab.url,
             "APPWRITE_PROJECT_ID": proj_id,
@@ -328,14 +333,15 @@ class ServiceOrchestrator:
                 return cmd_res
             # If successful, any data should be mounted as result.txt
             result_file = Path(temp_dir) / "result.txt"
+            _data = None
             if result_file.exists():
                 with open(result_file, "r") as f:
-                    data = f.read()
-                    return Response(
-                        error=False,
-                        message=f"Playwright automation{automation} deployed successfully.",
-                        data=data,
-                    )
+                    _data = f.read()
+            return Response(
+                error=False,
+                message=f"Playwright automation {automation} deployed successfully.",
+                data=_data,
+            )
 
     def teardown_service(self, name: str):
         """

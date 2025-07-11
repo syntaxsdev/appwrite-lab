@@ -20,10 +20,11 @@ def sync_lab(
 
     Args:
         name: The name of the lab to sync.
+        appwrite_json: The path to the appwrite JSON if not in current dir.
         resource: The resource to sync.
     """
     labs = get_global_labs()
-    with console.status(f"Syncing lab '{name}'...", spinner="dots") as status:
+    with console.status(f"Syncing lab '{name}'...", spinner="dots"):
         labs.sync_with_appwrite_config(
             name=name, appwrite_json=appwrite_json, sync_type=resource
         )

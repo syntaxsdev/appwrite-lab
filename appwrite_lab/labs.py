@@ -70,22 +70,23 @@ class Labs:
                     error=True,
                     message="Appwrite config file does not define a project name.",
                 )
-            vars = AppwriteProjectCreation(
-                project_name=proj_name,
-                project_id=proj_id,
-            )
         except Exception as e:
             return Response(
                 error=True,
                 message=f"Failed to load appwrite config: {e}",
             )
+
+        apc = AppwriteProjectCreation(
+            project_name=proj_name,
+            project_id=proj_id,
+        )
         addn_args = ["-v", f"{appwrite_json}:/work/appwrite.json"]
         self.orchestrator.deploy_playwright_automation(
-            lab, Automation.CREATE_PROJECT, model=vars, args=addn_args
+            lab=lab, automation=Automation.CREATE_PROJECT, model=apc, args=addn_args
         )
         self.orchestrator.deploy_playwright_automation(
-            lab,
-            Automation.SYNC_PROJECT,
+            lab=lab,
+            automation=Automation.SYNC_PROJECT,
             model=AppwriteSyncProject(sync_type),
             args=addn_args,
         )

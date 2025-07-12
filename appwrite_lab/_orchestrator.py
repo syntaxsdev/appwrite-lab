@@ -236,7 +236,9 @@ class ServiceOrchestrator:
         api_key_res = self.deploy_playwright_automation(
             lab=lab,
             automation=Automation.CREATE_USER_AND_API_KEY,
-            model=AppwriteAPIKeyCreation(key_name="default_key", key_expiry="Never"),
+            model=AppwriteAPIKeyCreation(
+                key_name="default_key", project_name=None, key_expiry="Never"
+            ),
         )
         if type(api_key_res) is Response and api_key_res.error:
             api_key_res.message = f"Lab '{name}' deployed, but failed to create API key. Spinning down lab."
@@ -289,8 +291,8 @@ class ServiceOrchestrator:
             )
         automation_dir = Path(__file__).parent / "automations"
         container_work_dir = "/work/automations"
-        project = project or Project(**lab.projects["default"])
-
+        project = project or lab.projects["default"]
+        project = Project(**project)
         proj_id = project.project_id
         api_key = project.api_key
 
@@ -303,7 +305,7 @@ class ServiceOrchestrator:
             "HOME": container_work_dir,
             **(model.as_dict_with_prefix("APPWRITE") if model else {}),
         }
-        envs = " ".join([f"{key}={value}" for key, value in env_vars.items()])
+        # envs = " ".join([f"{key}={value}" for key, value in env_vars.items()])
         docker_env_args = []
         for key, value in env_vars.items():
             docker_env_args.extend(["-e", f"{key}={value}"])

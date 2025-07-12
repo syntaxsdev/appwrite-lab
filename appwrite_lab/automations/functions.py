@@ -48,7 +48,6 @@ async def create_api_key_ui(
     page: Page, key_name: str = "api_key", key_expiry: str = "30 days"
 ) -> str:
     """Create an API key through the UI."""
-    await page.wait_for_timeout(500)
     await page.get_by_role("link", name="Overview").click()
     await page.get_by_role("tab", name="API keys").click()
     await page.get_by_role("link", name="Create API key", exact=True).click()

@@ -76,5 +76,5 @@ def new_api_key(
         key = labs.create_api_key(
             project_name=project_name, lab_name=lab_name, expiration=expiration
         )
-        print(key)
+        return key
         # status.update(f"Creating API key for project '{project_name}'... done")

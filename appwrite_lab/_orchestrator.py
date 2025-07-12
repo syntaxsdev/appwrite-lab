@@ -292,7 +292,7 @@ class ServiceOrchestrator:
         automation_dir = Path(__file__).parent / "automations"
         container_work_dir = "/work/automations"
         project = project or lab.projects["default"]
-        project = Project(**project)
+        project = Project(**project) if isinstance(project, dict) else project
         proj_id = project.project_id
         api_key = project.api_key
 

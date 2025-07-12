@@ -8,6 +8,7 @@ from appwrite_lab.automations.models import (
     AppwriteAPIKeyCreation,
     Expiration,
 )
+from .models import Project
 
 from pathlib import Path
 
@@ -96,6 +97,12 @@ class Labs:
             model=AppwriteSyncProject(sync_type),
             args=addn_args,
         )
+        key = self.create_api_key(lab=lab, expiration=expiration, project_name=proj_name)
+        lab.projects[proj_name] = Project(
+            project_id=proj_id,
+            project_name=proj_name,
+            api_key=key,
+        )
 
     def create_api_key(
         self,
@@ -121,10 +128,10 @@ class Labs:
             model=AppwriteAPIKeyCreation(
                 project_name=project_name,
                 key_name=project_name,
-                key_expiry=str(expiration),
+                key_expiry=str(expiration.value),
             ),
         )
-        return api_key
+        return api_key.data
 
     def stop(self, name: str):
         return self.orchestrator.teardown_service(name)

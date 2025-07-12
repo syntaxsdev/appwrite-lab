@@ -69,17 +69,20 @@ class ServiceOrchestrator:
         labs: dict = self.state.get("labs", {})
         if collapsed:
             headers = ["Name", "Version", "URL", "Admin Email", "Project ID", "API Key"]
-            return headers, [
-                [
-                    val["name"],
-                    val["version"],
-                    val["url"],
-                    val["admin_email"],
-                    val["project_id"],
-                    val["api_key"],
-                ]
-                for val in labs.values()
-            ]
+            data = []
+            for val in labs.values():
+                project = Project(**val.get("projects", {}).get("default"))
+                data.append(
+                    [
+                        val["name"],
+                        val["version"],
+                        val["url"],
+                        val["admin_email"],
+                        project.project_id,
+                        project.api_key,
+                    ]
+                )
+            return headers, data
         return labs
 
     def get_running_pods(self):

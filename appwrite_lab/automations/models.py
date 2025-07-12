@@ -1,7 +1,15 @@
 from dataclasses import dataclass, asdict
 import uuid
 import os
-from typing import Literal
+from enum import Enum
+
+
+class Expiration(str, Enum):
+    NEVER = "Never"
+    SEVEN_DAYS = "7 Days"
+    THIRTY_DAYS = "30 days"
+    NINETY_DAYS = "90 days"
+    YEAR = "Year"
 
 
 @dataclass
@@ -56,8 +64,9 @@ class AppwriteSyncProject(BaseVarModel):
 
 @dataclass
 class AppwriteAPIKeyCreation(BaseVarModel):
+    project_name: str
     key_name: str
-    key_expiry: Literal["Never", "7 Days", "30 days", "90 days", "Year"]
+    key_expiry: Expiration
 
 
 @dataclass

@@ -11,3 +11,5 @@ build_appwrite_playwright:
 # push_appwrite_cli:
 # 	docker tag appwrite-cli:latest appwrite-cli:$(APPWRITE_CLI_TAG)
 # 	docker push appwrite-cli:$(APPWRITE_CLI_TAG)
+clean-tests:
+	appwrite-lab stop test-lab

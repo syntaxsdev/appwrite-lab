@@ -9,7 +9,7 @@ from pathlib import Path
 from appwrite_lab.automations.models import BaseVarModel, AppwriteAPIKeyCreation
 from ._state import State
 from dataclasses import dataclass
-from .models import LabService, Automation, SyncType, Project
+from .models import Lab, Automation, SyncType, Project
 from dotenv import dotenv_values
 from appwrite_lab.utils import console
 from .utils import is_cli
@@ -51,16 +51,18 @@ class ServiceOrchestrator:
         Get all labs.
         """
         labs: dict = self.state.get("labs", {})
-        return [LabService(**lab) for lab in labs.values()]
+        return [Lab(**lab) for lab in labs.values()]
 
-    def get_lab(self, name: str) -> LabService | None:
+    def get_lab(self, name: str) -> Lab | None:
         """
         Get a lab by name.
         """
         labs: dict = self.state.get("labs", {})
         if not (lab := labs.get(name, None)):
             return None
-        return LabService(**lab)
+        projects = lab.get("projects", {})
+        _projects = {key: Project(**project) for key, project in projects.items()}
+        return Lab(**{**lab, "projects": _projects})
 
     def get_formatted_labs(self, collapsed: bool = False):
         """
@@ -149,19 +151,6 @@ class ServiceOrchestrator:
         ]
         return self._run_cmd_safely(cmd, envs=new_env)
 
-    def _run_cmd_safely(self, cmd: list[str], envs: dict[str, str] = {}):
-        """
-        Private function to run a command and return the output.
-
-        Args:
-            cmd: The command to run.
-            envs: The environment variables to set.
-        """
-        try:
-            return run_cmd(cmd, envs)
-        except OrchestratorError as e:
-            return Response(error=True, message=f"Failed to run command: {e}", data=e)
-
     def deploy_appwrite_lab(
         self, name: str, version: str, port: int, meta: dict[str, str]
     ):
@@ -224,7 +213,7 @@ class ServiceOrchestrator:
             **appwrite_config,
             "projects": {"default": Project(proj_id, proj_name, None)},
         }
-        lab = LabService(
+        lab = Lab(
             name=name,
             version=version,
             url=url,
@@ -258,7 +247,7 @@ class ServiceOrchestrator:
 
     def deploy_playwright_automation(
         self,
-        lab: LabService,
+        lab: Lab,
         automation: Automation,
         project: Project | None = None,
         model: BaseVarModel = None,
@@ -275,9 +264,9 @@ class ServiceOrchestrator:
         Args:
             lab: The lab to deploy the automations for.
             automation: The automation to deploy.
-            model: The model to use for the automation.
-            args: Extra arguments to pass to the automation.
-            project: The project to use for the automation.
+            model: The model args to use for the automation.
+            args: Extra arguments to the container.
+            project: The project to use for the automation, if not provided, the default project is used.
         """
         automation = automation.value
         function = (
@@ -302,6 +291,7 @@ class ServiceOrchestrator:
             "APPWRITE_ADMIN_EMAIL": lab.admin_email,
             "APPWRITE_ADMIN_PASSWORD": lab.admin_password,
             "APPWRITE_API_KEY": api_key,
+            "APPWRITE_PROJECT_NAME": project.project_name,
             "HOME": container_work_dir,
             **(model.as_dict_with_prefix("APPWRITE") if model else {}),
         }
@@ -414,6 +404,19 @@ class ServiceOrchestrator:
         )
         return _stdout_to_json(result.stdout)
 
+    def _run_cmd_safely(self, cmd: list[str], envs: dict[str, str] = {}):
+        """
+        Private function to run a command and return the output.
+
+        Args:
+            cmd: The command to run.
+            envs: The environment variables to set.
+        """
+        try:
+            return run_cmd(cmd, envs)
+        except OrchestratorError as e:
+            return Response(error=True, message=f"{str(e)}", data=str(e))
+
     @property
     def util(self):
         return shutil.which(self.backend)
@@ -439,20 +442,25 @@ def run_cmd(cmd: list[str], envs: dict[str, str] | None = None):
         cmd: The command to run.
         envs: The environment variables to set.
     """
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            env={**os.environ, **envs} if envs else None,
-        )
-        if result.returncode != 0:
-            raise OrchestratorError(
-                f"An error occured running a command: {result.stderr}"
-            )
-        return result
-    except Exception as e:
-        raise OrchestratorError(f"An error occured running a command: {e}")
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        env={**os.environ, **envs} if envs else None,
+    )
+    if result.returncode != 0:
+        error_msg = result.stderr.strip()
+        if error_msg:
+            # Look for the actual error message in the traceback
+            lines = error_msg.split("\n")
+            for line in reversed(lines):
+                if "PlaywrightAutomationError:" in line or "OrchestratorError:" in line:
+                    # Extract just the error message part
+                    if ":" in line:
+                        error_msg = line.split(":", 1)[1].strip()
+                    break
+        raise OrchestratorError(f"An error occured running a command: {error_msg}")
+    return result
 
 
 def get_template_versions():

@@ -2,6 +2,7 @@ import typer
 from appwrite_lab.utils import console
 from appwrite_lab.models import SyncType
 from appwrite_lab import get_global_labs
+from appwrite_lab.automations.models import Expiration
 
 sync_menu = typer.Typer(name="sync", help="Sync a resource to the lab.")
 
@@ -13,6 +14,9 @@ def sync_lab(
     ),
     resource: SyncType = typer.Option(
         SyncType.ALL, show_default=True, help="The resource to sync."
+    ),
+    expiration: Expiration = typer.Option(
+        Expiration.THIRTY_DAYS, help="The expiration of the API key."
     ),
 ):
     """
@@ -26,5 +30,8 @@ def sync_lab(
     labs = get_global_labs()
     with console.status(f"Syncing lab '{name}'...", spinner="dots"):
         labs.sync_with_appwrite_config(
-            name=name, appwrite_json=appwrite_json, sync_type=resource
+            name=name,
+            appwrite_json=appwrite_json,
+            sync_type=resource,
+            expiration=expiration,
         )

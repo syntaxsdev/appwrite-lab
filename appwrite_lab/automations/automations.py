@@ -1,9 +1,9 @@
-from appwrite_lab.models import LabService
+from appwrite_lab.models import Lab
 from appwrite.client import Client
 
 
 class LabContext:
-    def __init__(self, lab: LabService):
+    def __init__(self, lab: Lab):
         self.lab = lab
         self.client = (
             Client()

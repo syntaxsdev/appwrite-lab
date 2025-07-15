@@ -75,6 +75,7 @@ class AppwriteUserCreation(BaseVarModel):
     admin_email: str
     admin_password: str
     project_id: str
+    project_name: str
 
     def generate(self):
         """Generate random data for model"""

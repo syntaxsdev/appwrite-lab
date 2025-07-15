@@ -34,11 +34,14 @@ async def create_project(playwright: Playwright) -> bool:
 
     proj_res = get_project_exc.run()
     if proj_res.returncode == 0:
-        print("Project already exists")
+        raise PlaywrightAutomationError(
+            f"Project '{project_name}' with ID: '{project_id}' already exists"
+        )
+
     else:
         browser, context = await create_browser_context(playwright, headless=True)
         page = await context.new_page()
-        
+
         await login_to_console(page, auth.url, auth.admin_email, auth.admin_password)
 
         # Create project

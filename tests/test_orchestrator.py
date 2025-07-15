@@ -30,7 +30,6 @@ def test_get_templates():
 
 def test_check_pod_status(orchestrator: ServiceOrchestrator):
     running = orchestrator.check_pod_status("appwrite")
-    print(running)
 
 
 def test_deploy_service(orchestrator: ServiceOrchestrator):

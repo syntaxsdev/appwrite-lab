@@ -115,7 +115,7 @@ class Labs:
         expiration: Expiration = "30 days",
         lab_name: str | None = None,
         lab: Lab | None = None,
-    ):
+    ) -> Response:
         """
         Create an API key for a project.
 
@@ -135,8 +135,15 @@ class Labs:
                 key_name=project_name,
                 key_expiry=str(expiration.value),
             ),
+            print_data=True,
         )
-        return api_key.data
+        if api_key.error:
+            return Response(
+                message=f"Failed to create API key: {api_key.message}", error=True
+            )
+        # create another Response to print key
+        # return Response(message=api_key.data, data=api_key.data)
+        return api_key
 
     def stop(self, name: str):
         return self.orchestrator.teardown_service(name)

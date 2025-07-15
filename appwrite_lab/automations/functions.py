@@ -24,7 +24,7 @@ async def select_project_after_login(page: Page, project_name: str):
 async def register_user(page: Page, url: str, admin_email: str, admin_password: str):
     """Register a new user in Appwrite."""
     await page.goto(f"{url}/console/register")
-    await page.wait_for_timeout(100)
+    await page.wait_for_timeout(200)
     await page.get_by_role("textbox", name="Name").fill("Test User")
     await page.get_by_role("textbox", name="Email").fill(admin_email)
     await page.get_by_role("textbox", name="Password").fill(admin_password)

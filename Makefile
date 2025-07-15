@@ -13,3 +13,6 @@ build_appwrite_playwright:
 # 	docker push appwrite-cli:$(APPWRITE_CLI_TAG)
 clean-tests:
 	appwrite-lab stop test-lab
+
+tests:
+	source .venv/bin/activate && pytest -m e2e

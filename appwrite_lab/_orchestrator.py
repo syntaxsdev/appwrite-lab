@@ -22,13 +22,16 @@ class Response:
     message: str
     data: any = None
     error: bool = False
+    _print_data: bool = False
 
     def __post_init__(self):
         if is_cli:
             if self.error:
                 console.print(self.message, style="red")
             else:
-                console.print(self.message, style="green")
+                console.print(
+                    self.message if not self._print_data else self.data, style="green"
+                )
 
 
 @dataclass
@@ -187,7 +190,7 @@ class ServiceOrchestrator:
         if port != 80:
             env_vars["_APP_PORT"] = str(port)
 
-        # What actually deploys the service
+        # What actually deploys the initial appwrite service
         cmd_res = self._deploy_service(
             project=name, template_path=template_path, env_vars=env_vars
         )
@@ -221,12 +224,16 @@ class ServiceOrchestrator:
         )
 
         lab.generate_missing_config()
+        # ensure project_id and project_name are set
+        proj_id = proj_id or lab.projects.get("default").project_id
+        proj_name = proj_name or lab.projects.get("default").project_name
+
         # Deploy playwright automations for creating user and API key
         api_key_res = self.deploy_playwright_automation(
             lab=lab,
             automation=Automation.CREATE_USER_AND_API_KEY,
             model=AppwriteAPIKeyCreation(
-                key_name="default_key", project_name=None, key_expiry="Never"
+                key_name="default_key", project_name=proj_name, key_expiry="Never"
             ),
         )
         if type(api_key_res) is Response and api_key_res.error:
@@ -252,6 +259,8 @@ class ServiceOrchestrator:
         project: Project | None = None,
         model: BaseVarModel = None,
         args: list[str] = [],
+        *,
+        print_data: bool = False,
     ) -> str | Response:
         """
         Deploy playwright automations on a lab (very few automations supported).
@@ -267,6 +276,9 @@ class ServiceOrchestrator:
             model: The model args to use for the automation.
             args: Extra arguments to the container.
             project: The project to use for the automation, if not provided, the default project is used.
+
+        Keyword Args:
+            print_data: Whether to print the data of the response instead of the message.
         """
         automation = automation.value
         function = (
@@ -295,7 +307,6 @@ class ServiceOrchestrator:
             "HOME": container_work_dir,
             **(model.as_dict_with_prefix("APPWRITE") if model else {}),
         }
-        # envs = " ".join([f"{key}={value}" for key, value in env_vars.items()])
         docker_env_args = []
         for key, value in env_vars.items():
             docker_env_args.extend(["-e", f"{key}={value}"])
@@ -308,7 +319,7 @@ class ServiceOrchestrator:
                 "run",
                 "--network",
                 "host",
-                "--rm",
+                # "--rm",
                 "-u",
                 f"{os.getuid()}:{os.getgid()}",
                 "-v",
@@ -336,6 +347,7 @@ class ServiceOrchestrator:
                 error=False,
                 message=f"Playwright automation {automation} deployed successfully.",
                 data=_data,
+                _print_data=print_data,
             )
 
     def teardown_service(self, name: str):

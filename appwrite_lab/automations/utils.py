@@ -1,11 +1,14 @@
 import subprocess
 import os
+from pathlib import Path
 
 
 class PlaywrightAutomationError(Exception): ...
 
 
-def run_cmd(cmd: list[str], envs: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+def run_cmd(
+    cmd: list[str], envs: dict[str, str] | None = None
+) -> subprocess.CompletedProcess:
     """Run a command and return the output.
 
     Args:
@@ -30,3 +33,14 @@ def env_dict_to_str(envs: dict[str, str]) -> str:
         envs: The dictionary of environment variables.
     """
     return " ".join([f"{key}={value}" for key, value in envs.items()])
+
+
+def resultify(dir: Path | str, data: str) -> str:
+    """
+    Convert a string to a result.txt file.
+
+    Args:
+        data: The string to convert.
+    """
+    with open(f"{dir}/result.txt", "w") as f:
+        f.write(data)

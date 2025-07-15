@@ -1,8 +1,14 @@
 from appwrite_lab.utils import load_config
 from ._state import State
 from ._orchestrator import ServiceOrchestrator, Response
-from .models import Automation, LabService
-from appwrite_lab.automations.models import AppwriteProjectCreation, AppwriteSyncProject
+from .models import Automation, Lab
+from appwrite_lab.automations.models import (
+    AppwriteProjectCreation,
+    AppwriteSyncProject,
+    AppwriteAPIKeyCreation,
+    Expiration,
+)
+from .models import Project
 
 from pathlib import Path
 
@@ -31,7 +37,7 @@ class Labs:
         """
         return self.orchestrator.deploy_appwrite_lab(name, version, port, meta)
 
-    def get_lab(self, name: str) -> LabService | None:
+    def get_lab(self, name: str) -> Lab | None:
         """
         Get a lab by name.
 
@@ -41,7 +47,11 @@ class Labs:
         return self.orchestrator.get_lab(name)
 
     def sync_with_appwrite_config(
-        self, name: str, appwrite_json: str, sync_type: str = "all"
+        self,
+        name: str,
+        appwrite_json: str,
+        sync_type: str = "all",
+        expiration: Expiration = Expiration.THIRTY_DAYS,
     ):
         lab = self.orchestrator.get_lab(name)
         if not lab:
@@ -67,25 +77,105 @@ class Labs:
                     error=True,
                     message="Appwrite config file does not define a project name.",
                 )
-            vars = AppwriteProjectCreation(
-                project_name=proj_name,
-                project_id=proj_id,
-            )
         except Exception as e:
             return Response(
                 error=True,
                 message=f"Failed to load appwrite config: {e}",
             )
+
+        apc = AppwriteProjectCreation(
+            project_name=proj_name,
+            project_id=proj_id,
+        )
         addn_args = ["-v", f"{appwrite_json}:/work/appwrite.json"]
         self.orchestrator.deploy_playwright_automation(
-            lab, Automation.CREATE_PROJECT, model=vars, args=addn_args
+            lab=lab, automation=Automation.CREATE_PROJECT, model=apc, args=addn_args
         )
         self.orchestrator.deploy_playwright_automation(
-            lab,
-            Automation.SYNC_PROJECT,
+            lab=lab,
+            automation=Automation.SYNC_PROJECT,
             model=AppwriteSyncProject(sync_type),
             args=addn_args,
         )
+        key = self.create_api_key(
+            lab=lab, expiration=expiration, project_name=proj_name
+        )
+        lab.projects[proj_name] = Project(
+            project_id=proj_id,
+            project_name=proj_name,
+            api_key=key,
+        )
+        labs = self.state.get("labs")
+        labs[name] = lab.to_dict()
+        self.state.set("labs", labs)
+
+    def create_api_key(
+        self,
+        project_name: str,
+        expiration: Expiration = "30 days",
+        lab_name: str | None = None,
+        lab: Lab | None = None,
+    ) -> Response:
+        """
+        Create an API key for a project.
+
+        Args:
+            lab_name: The name of the lab.
+            project_name: The name of the project.
+            expiration: The expiration of the API key.
+        """
+        lab = lab or self.orchestrator.get_lab(lab_name)
+        if not lab:
+            return Response(message=f"Lab {lab_name} not found", error=True)
+        api_key = self.orchestrator.deploy_playwright_automation(
+            lab=lab,
+            automation=Automation.CREATE_API_KEY,
+            model=AppwriteAPIKeyCreation(
+                project_name=project_name,
+                key_name=project_name,
+                key_expiry=str(expiration.value),
+            ),
+            print_data=True,
+        )
+        if api_key.error:
+            return Response(
+                message=f"Failed to create API key: {api_key.message}", error=True
+            )
+        # create another Response to print key
+        # return Response(message=api_key.data, data=api_key.data)
+        return api_key
 
     def stop(self, name: str):
         return self.orchestrator.teardown_service(name)
+
+    def create_project(
+        self,
+        project_name: str,
+        project_id: str,
+        *,
+        lab_name: str | None = None,
+        lab: Lab | None = None,
+    ):
+        """
+        Create a project.
+
+        Args:
+            project_name: The name of the project.
+            project_id: The ID of the project.
+
+        Keyword Args:
+            lab_name: The name of the lab.
+            lab: The lab object.
+        """
+        lab = lab or self.orchestrator.get_lab(lab_name)
+        if not lab:
+            return Response(message=f"Lab {lab_name} not found", error=True)
+        apc = AppwriteProjectCreation(
+            project_name=project_name,
+            project_id=project_id,
+        )
+        self.orchestrator.deploy_playwright_automation(
+            lab=lab,
+            automation=Automation.CREATE_PROJECT,
+            model=apc,
+        )

@@ -1,8 +1,6 @@
-import os
 import pytest
 from appwrite_lab._orchestrator import ServiceOrchestrator, get_template_versions
 from appwrite_lab._state import State
-from tempfile import NamedTemporaryFile
 
 
 @pytest.fixture()
@@ -32,11 +30,12 @@ def test_get_templates():
 
 def test_check_pod_status(orchestrator: ServiceOrchestrator):
     running = orchestrator.check_pod_status("appwrite")
-    print(running)
 
 
 def test_deploy_service(orchestrator: ServiceOrchestrator):
-    response = orchestrator.deploy_service("lab-1", "1.7.4")
+    response = orchestrator.deploy_appwrite_lab(
+        name="lab-1", version="1.7.4", port=8085
+    )
     print("Res", response)
     assert response.message == "Lab `lab-1` deployed."
     assert response.data is None

@@ -1,6 +1,15 @@
 from dataclasses import dataclass, asdict
 import uuid
 import os
+from enum import Enum
+
+
+class Expiration(str, Enum):
+    NEVER = "Never"
+    SEVEN_DAYS = "7 Days"
+    THIRTY_DAYS = "30 days"
+    NINETY_DAYS = "90 days"
+    YEAR = "Year"
 
 
 @dataclass
@@ -44,8 +53,8 @@ class AppwriteWebAuth(BaseVarModel):
 
 @dataclass
 class AppwriteProjectCreation(BaseVarModel):
-    project_name: str
     project_id: str
+    project_name: str
 
 
 @dataclass
@@ -54,7 +63,15 @@ class AppwriteSyncProject(BaseVarModel):
 
 
 @dataclass
-class AppwriteUserCreation:
+class AppwriteAPIKeyCreation(BaseVarModel):
+    project_name: str
+    key_name: str
+    key_expiry: Expiration
+
+
+@dataclass
+class AppwriteUserCreation(BaseVarModel):
+    url: str
     admin_email: str
     admin_password: str
     project_id: str

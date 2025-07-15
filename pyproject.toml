@@ -21,3 +21,8 @@ appwrite_lab = ["templates/**/*"]
 [project.scripts]
 appwrite-lab = "appwrite_lab.cli.entry:app"
 awlab = "appwrite_lab.cli.entry:app"
+
+[tool.pytest.ini_options]
+markers = [
+    "e2e: mark test as e2e",
+]

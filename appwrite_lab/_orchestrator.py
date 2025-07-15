@@ -6,10 +6,10 @@ import json
 import tempfile
 from pathlib import Path
 
-from appwrite_lab.automations.models import BaseVarModel
+from appwrite_lab.automations.models import BaseVarModel, AppwriteAPIKeyCreation
 from ._state import State
 from dataclasses import dataclass
-from .models import LabService, Automation, SyncType
+from .models import Lab, Automation, SyncType, Project
 from dotenv import dotenv_values
 from appwrite_lab.utils import console
 from .utils import is_cli
@@ -22,13 +22,16 @@ class Response:
     message: str
     data: any = None
     error: bool = False
+    _print_data: bool = False
 
     def __post_init__(self):
         if is_cli:
             if self.error:
                 console.print(self.message, style="red")
             else:
-                console.print(self.message, style="green")
+                console.print(
+                    self.message if not self._print_data else self.data, style="green"
+                )
 
 
 @dataclass
@@ -51,16 +54,18 @@ class ServiceOrchestrator:
         Get all labs.
         """
         labs: dict = self.state.get("labs", {})
-        return [LabService(**lab) for lab in labs.values()]
+        return [Lab(**lab) for lab in labs.values()]
 
-    def get_lab(self, name: str) -> LabService | None:
+    def get_lab(self, name: str) -> Lab | None:
         """
         Get a lab by name.
         """
         labs: dict = self.state.get("labs", {})
         if not (lab := labs.get(name, None)):
             return None
-        return LabService(**lab)
+        projects = lab.get("projects", {})
+        _projects = {key: Project(**project) for key, project in projects.items()}
+        return Lab(**{**lab, "projects": _projects})
 
     def get_formatted_labs(self, collapsed: bool = False):
         """
@@ -69,17 +74,20 @@ class ServiceOrchestrator:
         labs: dict = self.state.get("labs", {})
         if collapsed:
             headers = ["Name", "Version", "URL", "Admin Email", "Project ID", "API Key"]
-            return headers, [
-                [
-                    val["name"],
-                    val["version"],
-                    val["url"],
-                    val["admin_email"],
-                    val["project_id"],
-                    val["api_key"],
-                ]
-                for val in labs.values()
-            ]
+            data = []
+            for val in labs.values():
+                project = Project(**val.get("projects", {}).get("default"))
+                data.append(
+                    [
+                        val["name"],
+                        val["version"],
+                        val["url"],
+                        val["admin_email"],
+                        project.project_id,
+                        project.api_key,
+                    ]
+                )
+            return headers, data
         return labs
 
     def get_running_pods(self):
@@ -146,19 +154,6 @@ class ServiceOrchestrator:
         ]
         return self._run_cmd_safely(cmd, envs=new_env)
 
-    def _run_cmd_safely(self, cmd: list[str], envs: dict[str, str] = {}):
-        """
-        Private function to run a command and return the output.
-
-        Args:
-            cmd: The command to run.
-            envs: The environment variables to set.
-        """
-        try:
-            return run_cmd(cmd, envs)
-        except OrchestratorError as e:
-            return Response(error=True, message=f"Failed to run command: {e}", data=e)
-
     def deploy_appwrite_lab(
         self, name: str, version: str, port: int, meta: dict[str, str]
     ):
@@ -195,7 +190,7 @@ class ServiceOrchestrator:
         if port != 80:
             env_vars["_APP_PORT"] = str(port)
 
-        # What actually deploys the service
+        # What actually deploys the initial appwrite service
         cmd_res = self._deploy_service(
             project=name, template_path=template_path, env_vars=env_vars
         )
@@ -213,26 +208,39 @@ class ServiceOrchestrator:
             )
             port = extract_port_from_pod_info(traefik_pod)
             url = f"http://localhost:{port}"
-            print("url", url)
         else:
             url = ""
-        lab = LabService(
+        proj_id = appwrite_config.pop("project_id", None)
+        proj_name = appwrite_config.pop("project_name", None)
+        kwargs = {
+            **appwrite_config,
+            "projects": {"default": Project(proj_id, proj_name, None)},
+        }
+        lab = Lab(
             name=name,
             version=version,
             url=url,
-            **appwrite_config,
+            **kwargs,
         )
 
         lab.generate_missing_config()
+        # ensure project_id and project_name are set
+        proj_id = proj_id or lab.projects.get("default").project_id
+        proj_name = proj_name or lab.projects.get("default").project_name
+
         # Deploy playwright automations for creating user and API key
         api_key_res = self.deploy_playwright_automation(
-            lab, Automation.CREATE_USER_AND_API_KEY
+            lab=lab,
+            automation=Automation.CREATE_USER_AND_API_KEY,
+            model=AppwriteAPIKeyCreation(
+                key_name="default_key", project_name=proj_name, key_expiry="Never"
+            ),
         )
         if type(api_key_res) is Response and api_key_res.error:
             api_key_res.message = f"Lab '{name}' deployed, but failed to create API key. Spinning down lab."
             self.teardown_service(name)
             return api_key_res
-        lab.api_key = api_key_res.data
+        lab.projects["default"].api_key = api_key_res.data
 
         stored_labs: dict = self.state.get("labs", {}).copy()
         stored_labs[name] = asdict(lab)
@@ -246,10 +254,13 @@ class ServiceOrchestrator:
 
     def deploy_playwright_automation(
         self,
-        lab: LabService,
+        lab: Lab,
         automation: Automation,
+        project: Project | None = None,
         model: BaseVarModel = None,
         args: list[str] = [],
+        *,
+        print_data: bool = False,
     ) -> str | Response:
         """
         Deploy playwright automations on a lab (very few automations supported).
@@ -262,11 +273,16 @@ class ServiceOrchestrator:
         Args:
             lab: The lab to deploy the automations for.
             automation: The automation to deploy.
-            model: The model to use for the automation.
+            model: The model args to use for the automation.
+            args: Extra arguments to the container.
+            project: The project to use for the automation, if not provided, the default project is used.
+
+        Keyword Args:
+            print_data: Whether to print the data of the response instead of the message.
         """
         automation = automation.value
         function = (
-            Path(__file__).parent / "automations" / "functions" / f"{automation}.py"
+            Path(__file__).parent / "automations" / "scripts" / f"{automation}.py"
         )
         if not function.exists():
             return Response(
@@ -276,28 +292,34 @@ class ServiceOrchestrator:
             )
         automation_dir = Path(__file__).parent / "automations"
         container_work_dir = "/work/automations"
+        project = project or lab.projects["default"]
+        project = Project(**project) if isinstance(project, dict) else project
+        proj_id = project.project_id
+        api_key = project.api_key
+
         env_vars = {
             "APPWRITE_URL": lab.url,
-            "APPWRITE_PROJECT_ID": lab.project_id,
+            "APPWRITE_PROJECT_ID": proj_id,
             "APPWRITE_ADMIN_EMAIL": lab.admin_email,
             "APPWRITE_ADMIN_PASSWORD": lab.admin_password,
+            "APPWRITE_API_KEY": api_key,
+            "APPWRITE_PROJECT_NAME": project.project_name,
             "HOME": container_work_dir,
             **(model.as_dict_with_prefix("APPWRITE") if model else {}),
         }
-        envs = " ".join([f"{key}={value}" for key, value in env_vars.items()])
         docker_env_args = []
         for key, value in env_vars.items():
             docker_env_args.extend(["-e", f"{key}={value}"])
         with tempfile.TemporaryDirectory() as temp_dir:
             shutil.copytree(automation_dir, temp_dir, dirs_exist_ok=True)
-            function = Path(temp_dir) / "automations" / "functions" / f"{automation}.py"
+            function = Path(temp_dir) / "automations" / "scripts" / f"{automation}.py"
 
             cmd = [
                 self.util,
                 "run",
                 "--network",
                 "host",
-                "--rm",
+                # "--rm",
                 "-u",
                 f"{os.getuid()}:{os.getgid()}",
                 "-v",
@@ -307,7 +329,7 @@ class ServiceOrchestrator:
                 APPWRITE_PLAYWRIGHT_IMAGE,
                 "python",
                 "-m",
-                f"automations.functions.{automation}",
+                f"automations.scripts.{automation}",
             ]
             cmd_res = self._run_cmd_safely(cmd)
             if type(cmd_res) is Response and cmd_res.error:
@@ -317,14 +339,16 @@ class ServiceOrchestrator:
                 return cmd_res
             # If successful, any data should be mounted as result.txt
             result_file = Path(temp_dir) / "result.txt"
+            _data = None
             if result_file.exists():
                 with open(result_file, "r") as f:
-                    data = f.read()
-                    return Response(
-                        error=False,
-                        message=f"Playwright automation{automation} deployed successfully.",
-                        data=data,
-                    )
+                    _data = f.read()
+            return Response(
+                error=False,
+                message=f"Playwright automation {automation} deployed successfully.",
+                data=_data,
+                _print_data=print_data,
+            )
 
     def teardown_service(self, name: str):
         """
@@ -340,7 +364,16 @@ class ServiceOrchestrator:
                 message=f"Nothing to stop by name of '{name}'.",
                 data=None,
             )
-        cmd = [self.compose, "-p", name, "down", "-v"]
+        cmd = [
+            self.compose,
+            "-p",
+            name,
+            "down",
+            "-v",
+            "--timeout",
+            "0",
+            "--remove-orphans",
+        ]
         cmd_res = self._run_cmd_safely(cmd)
         if type(cmd_res) is Response and cmd_res.error:
             cmd_res.message = f"Failed to teardown lab {name}. \
@@ -383,6 +416,19 @@ class ServiceOrchestrator:
         )
         return _stdout_to_json(result.stdout)
 
+    def _run_cmd_safely(self, cmd: list[str], envs: dict[str, str] = {}):
+        """
+        Private function to run a command and return the output.
+
+        Args:
+            cmd: The command to run.
+            envs: The environment variables to set.
+        """
+        try:
+            return run_cmd(cmd, envs)
+        except OrchestratorError as e:
+            return Response(error=True, message=f"{str(e)}", data=str(e))
+
     @property
     def util(self):
         return shutil.which(self.backend)
@@ -408,20 +454,25 @@ def run_cmd(cmd: list[str], envs: dict[str, str] | None = None):
         cmd: The command to run.
         envs: The environment variables to set.
     """
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            env={**os.environ, **envs} if envs else None,
-        )
-        if result.returncode != 0:
-            raise OrchestratorError(
-                f"An error occured running a command: {result.stderr}"
-            )
-        return result
-    except Exception as e:
-        raise OrchestratorError(f"An error occured running a command: {e}")
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        env={**os.environ, **envs} if envs else None,
+    )
+    if result.returncode != 0:
+        error_msg = result.stderr.strip()
+        if error_msg:
+            # Look for the actual error message in the traceback
+            lines = error_msg.split("\n")
+            for line in reversed(lines):
+                if "PlaywrightAutomationError:" in line or "OrchestratorError:" in line:
+                    # Extract just the error message part
+                    if ":" in line:
+                        error_msg = line.split(":", 1)[1].strip()
+                    break
+        raise OrchestratorError(f"An error occured running a command: {error_msg}")
+    return result
 
 
 def get_template_versions():

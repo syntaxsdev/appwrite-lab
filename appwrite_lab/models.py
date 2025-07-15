@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from enum import StrEnum
 import random
 import string
@@ -28,31 +28,52 @@ class SyncType(StrEnum):
 
 
 @dataclass
-class LabService:
+class _BaseClass:
+    def to_dict(self):
+        return asdict(self)
+
+
+@dataclass
+class Project(_BaseClass):
+    project_id: str
+    project_name: str
+    api_key: str
+
+
+@dataclass
+class Lab(_BaseClass):
     name: str
     version: str
     url: str
     admin_email: str = field(default="")
     admin_password: str = field(default="")
-    project_id: str = field(default="")
-    project_name: str = field(default="")
-    api_key: str = field(default="")
+    projects: dict[str, Project] = field(
+        default_factory=lambda: {"default": Project(None, None, None)}
+    )
     _file: str = field(default="")
 
     def generate_missing_config(self):
-        """
-        Generate missing data config with random.
-        """
-        if not self.project_id:
-            self.project_id = "".join(
-                random.choices(string.ascii_letters + string.digits, k=10)
-            )
-            self.project_id = self.project_id.lower()
+        """Generate missing data config with random values."""
+        default_project = self.projects["default"]
+
+        if not default_project.project_id:
+            default_project.project_id = self._generate_random_id()
+
         if not self.admin_email:
-            self.admin_email = f"admin_{self.project_id}@local.dev"
+            self.admin_email = f"admin_{default_project.project_id}@local.dev"
+
         if not self.admin_password:
-            self.admin_password = "".join(
-                random.choices(string.ascii_letters + string.digits, k=16)
-            )
-        if not self.project_name:
-            self.project_name = f"Default_{self.project_id}"
+            self.admin_password = self._generate_random_password()
+
+        if not default_project.project_name:
+            default_project.project_name = f"Default_{default_project.project_id}"
+
+    def _generate_random_id(self) -> str:
+        """Generate a random 10-character ID."""
+        return "".join(
+            random.choices(string.ascii_letters + string.digits, k=10)
+        ).lower()
+
+    def _generate_random_password(self) -> str:
+        """Generate a random 16-character password."""
+        return "".join(random.choices(string.ascii_letters + string.digits, k=16))

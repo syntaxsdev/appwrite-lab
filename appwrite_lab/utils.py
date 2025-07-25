@@ -1,6 +1,7 @@
 import os
 import platform
 import json
+import socket
 
 from rich.console import Console
 from rich.table import Table
@@ -70,3 +71,21 @@ def load_config(appwrite_json: str):
 @property
 def is_cli():
     return is_cli_setting
+
+
+def port_in_use(port: int, host: str = "0.0.0.0") -> bool:
+    """Check if a port is in use.
+
+    Args:
+        port: The port to check.
+        host: The host to check.
+
+    Returns:
+        True if the port is in use, False otherwise.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind((host, port))
+            return False
+        except OSError:
+            return True

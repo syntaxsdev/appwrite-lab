@@ -10,11 +10,12 @@ pip install appwrite-lab
 ## Appwrite Lab features (in progress)
 - [x] Spin up ephemeral Appwrite instances with Docker/Podman
 - [x] Automatically grab API keys (for programmatic access)
-- [ ] Test suite
 - [x] Environment syncing
-- [ ] Appwrite data population
 - [x] Clean teardowns
 
+## Appwrite Lab in progress features
+- [ ] Test suite
+- [ ] Appwrite data population
 
 ## CLI Usage
 ### Help with appwrite-lab CLI
@@ -44,3 +45,9 @@ or sync a specific resource:
 ```sh
 appwrite-lab sync test-lab --resource functions
 ```
+
+## Known Troubleshooting
+### Podman support and Selinux
+Since I am mimicking the `compose` file that Appwrite provides, it was not designed to work rootless, but I have adjusted to work also on Fedora. You will need to turn `selinux` off for now to use.
+
+

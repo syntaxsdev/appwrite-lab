@@ -16,3 +16,13 @@ clean-tests:
 
 tests:
 	source .venv/bin/activate && pytest -m e2e
+
+patch_templates:
+	@VENV=$$(mktemp -d) && \
+	uv venv $$VENV && \
+	source $$VENV/bin/activate && \
+	uv pip install ruamel.yaml && \
+	python scripts/selinuxify_template_patch.py && \
+	rm -rf $$VENV
+
+.PHONY: patch_templates tests clean-tests build_appwrite_cli build_appwrite_playwright

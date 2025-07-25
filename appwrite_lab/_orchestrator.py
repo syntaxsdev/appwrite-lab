@@ -34,10 +34,6 @@ class Response:
                 )
 
 
-@dataclass
-class CompletedProcess: ...
-
-
 class OrchestratorError(Exception): ...
 
 
@@ -313,17 +309,16 @@ class ServiceOrchestrator:
         with tempfile.TemporaryDirectory() as temp_dir:
             shutil.copytree(automation_dir, temp_dir, dirs_exist_ok=True)
             function = Path(temp_dir) / "automations" / "scripts" / f"{automation}.py"
-
             cmd = [
                 self.util,
                 "run",
                 "--network",
                 "host",
-                # "--rm",
+                "--rm",
                 "-u",
                 f"{os.getuid()}:{os.getgid()}",
                 "-v",
-                f"{temp_dir}:{container_work_dir}",
+                f"{temp_dir}:{container_work_dir}:Z",
                 *args,
                 *docker_env_args,
                 APPWRITE_PLAYWRIGHT_IMAGE,

@@ -9,7 +9,6 @@ volume_skip = ["/tmp"]
 
 templates_dir = Path(__file__).parent.parent / "appwrite_lab" / "templates"
 list_of_templates = [f for f in os.listdir(templates_dir) if f.endswith(".yml")]
-# print(list_of_templates)
 for template in list_of_templates:
     with open(templates_dir / template) as f:
         data = yaml.load(f)

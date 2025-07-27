@@ -27,6 +27,15 @@ def test_labs_create_api_key(lab: Lab, lab_svc: Labs):
 
 
 @pytest.mark.e2e
+def test_labs_synced_project(lab: Lab, lab_svc: Labs):
+    synced_proj_name = "KubeProject"
+    synced_proj = lab.projects.get(synced_proj_name)
+    assert synced_proj is not None
+    assert synced_proj.api_key.startswith("standard_")
+    assert synced_proj.project_name == "KubeProject"
+
+
+@pytest.mark.e2e
 def test_labs_create_project(lab: Lab, lab_svc: Labs):
     project_name = "test-project"
     project_id = "test-project-id"

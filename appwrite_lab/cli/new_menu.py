@@ -103,8 +103,8 @@ def new_api_key(
         key = labs.create_api_key(
             project_name=project_name, lab_name=lab_name, expiration=expiration
         )
-        return key
-        # status.update(f"Creating API key for project '{project_name}'... done")
+        status.update(f"Creating API key for project '{project_name}'... done")
+        return key.data
 
 
 @new_menu.command(name="project", help="Create a new project")

@@ -9,7 +9,7 @@ from pathlib import Path
 from appwrite_lab.automations.models import BaseVarModel, AppwriteAPIKeyCreation
 from ._state import State
 from dataclasses import dataclass
-from .models import Lab, Automation, SyncType, Project
+from .models import Lab, Automation, Project
 from dotenv import dotenv_values
 from appwrite_lab.utils import console
 from .utils import is_cli
@@ -20,7 +20,7 @@ from dataclasses import asdict
 @dataclass
 class Response:
     message: str
-    data: any = None
+    data: str | dict | None = None
     error: bool = False
     _print_data: bool = False
 
@@ -275,7 +275,6 @@ class ServiceOrchestrator:
         args: list[str] = [],
         *,
         print_data: bool = False,
-        **kwargs,
     ) -> str | Response:
         """
         Deploy playwright automations on a lab (very few automations supported).

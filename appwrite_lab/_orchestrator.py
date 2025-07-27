@@ -146,7 +146,7 @@ class ServiceOrchestrator:
         """
         new_env = {**os.environ, **env_vars}
         cmd = [
-            self.compose,
+            *self.compose,
             "-f",
             template_path,
             "-p",
@@ -378,7 +378,7 @@ class ServiceOrchestrator:
                 data=None,
             )
         cmd = [
-            self.compose,
+            *self.compose,
             "-p",
             name,
             "down",
@@ -452,11 +452,11 @@ class ServiceOrchestrator:
             # Try docker-compose first, then fall back to docker compose
             compose_cmd = shutil.which("docker-compose")
             if compose_cmd:
-                return compose_cmd
+                return [compose_cmd]
             else:
-                return "docker compose"
+                return [shutil.which("docker"), "compose"]
         else:
-            return shutil.which(f"{self.backend}-compose")
+            return [shutil.which(f"{self.backend}-compose")]
 
 
 def detect_backend():

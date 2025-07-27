@@ -460,16 +460,23 @@ class ServiceOrchestrator:
 
 
 def detect_backend():
-    if shutil.which("docker") and (
-        shutil.which("docker-compose") or shutil.which("docker compose")
-    ):
-        # If docker is available, we can use docker compose (subcommand)
-        # or docker-compose (standalone binary)
-        return "docker"
-    elif shutil.which("podman") and shutil.which("podman-compose"):
+    if shutil.which("docker"):
+        try:
+            subprocess.run(
+                ["docker", "compose", "version"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return "docker"
+        except Exception:
+            pass
+        # Check for legacy 'docker-compose' binary
+        if shutil.which("docker-compose"):
+            return "docker"
+    if shutil.which("podman") and shutil.which("podman-compose"):
         return "podman"
-    else:
-        raise RuntimeError("Neither Docker nor Podman found.")
+    raise RuntimeError("Neither Docker nor Podman found.")
 
 
 def run_cmd(cmd: list[str], envs: dict[str, str] | None = None):

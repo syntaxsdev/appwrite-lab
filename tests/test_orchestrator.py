@@ -19,7 +19,9 @@ def orchestrator(state: State):
 def test_orchestrator_init(orchestrator: ServiceOrchestrator):
     assert orchestrator.backend == "docker"
     assert orchestrator.util.endswith("docker")
-    assert orchestrator.compose.endswith("docker-compose")
+    # Check for either docker-compose or docker compose
+    compose_cmd = orchestrator.compose
+    assert compose_cmd.endswith("docker-compose") or compose_cmd == "docker compose"
 
 
 def test_get_templates():

@@ -23,5 +23,4 @@ jobs:
       run: docker compose --version
         
     - name: Run tests
-      run: |
-        make tests
+      run: make tests

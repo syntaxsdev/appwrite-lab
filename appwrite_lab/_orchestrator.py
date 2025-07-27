@@ -448,11 +448,23 @@ class ServiceOrchestrator:
 
     @property
     def compose(self):
-        return shutil.which(f"{self.backend}-compose")
+        if self.backend == "docker":
+            # Try docker-compose first, then fall back to docker compose
+            compose_cmd = shutil.which("docker-compose")
+            if compose_cmd:
+                return compose_cmd
+            else:
+                return "docker compose"
+        else:
+            return shutil.which(f"{self.backend}-compose")
 
 
 def detect_backend():
-    if shutil.which("docker") and shutil.which("docker-compose"):
+    if shutil.which("docker") and (
+        shutil.which("docker-compose") or shutil.which("docker compose")
+    ):
+        # If docker is available, we can use docker compose (subcommand)
+        # or docker-compose (standalone binary)
         return "docker"
     elif shutil.which("podman") and shutil.which("podman-compose"):
         return "podman"

@@ -69,7 +69,14 @@ class ServiceOrchestrator:
         """
         labs: dict = self.state.get("labs", {})
         if collapsed:
-            headers = ["Lab Name", "Version", "URL", "Admin Email", "Admin Password", "Project ID"]
+            headers = [
+                "Lab Name",
+                "Version",
+                "URL",
+                "Admin Email",
+                "Admin Password",
+                "Project ID",
+            ]
             data = []
             for val in labs.values():
                 project = Project(**val.get("projects", {}).get("default"))
@@ -151,7 +158,12 @@ class ServiceOrchestrator:
         return self._run_cmd_safely(cmd, envs=new_env)
 
     def deploy_appwrite_lab(
-        self, name: str, version: str, port: int, meta: dict[str, str]
+        self,
+        name: str,
+        version: str,
+        port: int,
+        meta: dict[str, str],
+        **kwargs: dict[str, str],
     ):
         """
         Deploy an Appwrite lab.
@@ -161,6 +173,7 @@ class ServiceOrchestrator:
             version: The version of the service to deploy.
             port: The port to use for the Appwrite service. Must not be in use by another service.
             meta: Extra metadata to pass to the deployment.
+
         """
         # sync
         appwrite_config = meta.get("appwrite_config", {})
@@ -208,7 +221,7 @@ class ServiceOrchestrator:
             url = ""
         proj_id = appwrite_config.pop("project_id", None)
         proj_name = appwrite_config.pop("project_name", None)
-        kwargs = {
+        _kwargs = {
             **appwrite_config,
             "projects": {"default": Project(proj_id, proj_name, None)},
         }
@@ -216,14 +229,19 @@ class ServiceOrchestrator:
             name=name,
             version=version,
             url=url,
-            **kwargs,
+            **_kwargs,
         )
 
         lab.generate_missing_config()
         # ensure project_id and project_name are set
         proj_id = proj_id or lab.projects.get("default").project_id
         proj_name = proj_name or lab.projects.get("default").project_name
-
+        if kwargs.get("just_deploy", False):
+            return Response(
+                error=False,
+                message=f"Lab '{name}' deployed with --just-deploy flag.",
+                data=lab,
+            )
         # Deploy playwright automations for creating user and API key
         api_key_res = self.deploy_playwright_automation(
             lab=lab,
@@ -257,6 +275,7 @@ class ServiceOrchestrator:
         args: list[str] = [],
         *,
         print_data: bool = False,
+        **kwargs,
     ) -> str | Response:
         """
         Deploy playwright automations on a lab (very few automations supported).

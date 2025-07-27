@@ -26,6 +26,7 @@ class Labs:
         version: str,
         port: int,
         meta: dict[str, str] = {},
+        just_deploy: bool = False,
     ):
         """
         Deploy a new Appwrite lab.
@@ -35,7 +36,9 @@ class Labs:
             version: The version of the lab.
             port: The port of the lab.
         """
-        return self.orchestrator.deploy_appwrite_lab(name, version, port, meta)
+        return self.orchestrator.deploy_appwrite_lab(
+            name, version, port, meta, just_deploy=just_deploy
+        )
 
     def get_lab(self, name: str) -> Lab | None:
         """

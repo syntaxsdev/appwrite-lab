@@ -4,6 +4,7 @@ import pytest
 from appwrite_lab.labs import Labs
 from appwrite_lab.models import Lab
 
+
 @pytest.fixture(scope="session")
 def lab_svc():
     """Lab service instance for managing Appwrite labs."""

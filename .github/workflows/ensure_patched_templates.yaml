@@ -19,11 +19,7 @@ jobs:
       with:
         version: latest
         python-version: '3.11'
-        
-    - name: Install dependencies
-      run: |
-        uv pip install pytest ruamel.yaml
-        
+
     - name: Test patch_templates target
       run: |
         make patch_templates

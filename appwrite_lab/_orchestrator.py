@@ -69,7 +69,7 @@ class ServiceOrchestrator:
         """
         labs: dict = self.state.get("labs", {})
         if collapsed:
-            headers = ["Name", "Version", "URL", "Admin Email", "Project ID", "API Key"]
+            headers = ["Lab Name", "Version", "URL", "Admin Email", "Admin Password", "Project ID"]
             data = []
             for val in labs.values():
                 project = Project(**val.get("projects", {}).get("default"))
@@ -79,8 +79,8 @@ class ServiceOrchestrator:
                         val["version"],
                         val["url"],
                         val["admin_email"],
+                        val["admin_password"],
                         project.project_id,
-                        project.api_key,
                     ]
                 )
             return headers, data

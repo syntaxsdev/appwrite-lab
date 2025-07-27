@@ -1,6 +1,11 @@
 from playwright.async_api import Playwright, Page, BrowserContext, Browser
 
 
+async def wait_until_loaded(page: Page):
+    """Wait until the page is loaded."""
+    await page.wait_for_selector('img[alt="Appwrite Logo"]')
+
+
 async def create_browser_context(playwright: Playwright, headless: bool = True):
     """Create a browser context for automation."""
     browser = await playwright.chromium.launch(headless=headless)
@@ -24,6 +29,7 @@ async def select_project_after_login(page: Page, project_name: str):
 async def register_user(page: Page, url: str, admin_email: str, admin_password: str):
     """Register a new user in Appwrite."""
     await page.goto(f"{url}/console/register")
+    await wait_until_loaded(page)
     await page.wait_for_timeout(200)
     await page.get_by_role("textbox", name="Name").fill("Test User")
     await page.get_by_role("textbox", name="Email").fill(admin_email)

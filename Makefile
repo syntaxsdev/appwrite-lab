@@ -11,18 +11,19 @@ build_appwrite_playwright:
 # push_appwrite_cli:
 # 	docker tag appwrite-cli:latest appwrite-cli:$(APPWRITE_CLI_TAG)
 # 	docker push appwrite-cli:$(APPWRITE_CLI_TAG)
-clean-tests:
-	appwrite-lab stop test-lab
-
-tests:
-	source .venv/bin/activate && pytest -m e2e
-
 patch_templates:
 	@VENV=$$(mktemp -d) && \
-	uv venv $$VENV && \
-	source $$VENV/bin/activate && \
-	uv pip install ruamel.yaml && \
+	uv venv $$VENV > /dev/null 2>&1 && \
+	. $$VENV/bin/activate > /dev/null 2>&1 && \
+	uv pip install ruamel.yaml > /dev/null 2>&1 && \
 	python scripts/selinuxify_template_patch.py && \
 	rm -rf $$VENV
+
+tests:
+	uv run pytest -rs -m e2e
+
+clean-tests:
+	@source .venv/bin/activate && \
+	appwrite-lab stop test-lab
 
 .PHONY: patch_templates tests clean-tests build_appwrite_cli build_appwrite_playwright

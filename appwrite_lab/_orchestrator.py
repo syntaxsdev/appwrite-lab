@@ -9,7 +9,7 @@ from pathlib import Path
 from appwrite_lab.automations.models import BaseVarModel, AppwriteAPIKeyCreation
 from ._state import State
 from dataclasses import dataclass
-from .models import Lab, Automation, SyncType, Project
+from .models import Lab, Automation, Project
 from dotenv import dotenv_values
 from appwrite_lab.utils import console
 from .utils import is_cli
@@ -20,7 +20,7 @@ from dataclasses import asdict
 @dataclass
 class Response:
     message: str
-    data: any = None
+    data: str | dict | None = None
     error: bool = False
     _print_data: bool = False
 
@@ -69,7 +69,14 @@ class ServiceOrchestrator:
         """
         labs: dict = self.state.get("labs", {})
         if collapsed:
-            headers = ["Name", "Version", "URL", "Admin Email", "Project ID", "API Key"]
+            headers = [
+                "Lab Name",
+                "Version",
+                "URL",
+                "Admin Email",
+                "Admin Password",
+                "Project ID",
+            ]
             data = []
             for val in labs.values():
                 project = Project(**val.get("projects", {}).get("default"))
@@ -79,8 +86,8 @@ class ServiceOrchestrator:
                         val["version"],
                         val["url"],
                         val["admin_email"],
+                        val["admin_password"],
                         project.project_id,
-                        project.api_key,
                     ]
                 )
             return headers, data
@@ -139,7 +146,7 @@ class ServiceOrchestrator:
         """
         new_env = {**os.environ, **env_vars}
         cmd = [
-            self.compose,
+            *self.compose,
             "-f",
             template_path,
             "-p",
@@ -151,7 +158,12 @@ class ServiceOrchestrator:
         return self._run_cmd_safely(cmd, envs=new_env)
 
     def deploy_appwrite_lab(
-        self, name: str, version: str, port: int, meta: dict[str, str]
+        self,
+        name: str,
+        version: str,
+        port: int,
+        meta: dict[str, str],
+        **kwargs: dict[str, str],
     ):
         """
         Deploy an Appwrite lab.
@@ -161,6 +173,7 @@ class ServiceOrchestrator:
             version: The version of the service to deploy.
             port: The port to use for the Appwrite service. Must not be in use by another service.
             meta: Extra metadata to pass to the deployment.
+
         """
         # sync
         appwrite_config = meta.get("appwrite_config", {})
@@ -208,7 +221,7 @@ class ServiceOrchestrator:
             url = ""
         proj_id = appwrite_config.pop("project_id", None)
         proj_name = appwrite_config.pop("project_name", None)
-        kwargs = {
+        _kwargs = {
             **appwrite_config,
             "projects": {"default": Project(proj_id, proj_name, None)},
         }
@@ -216,14 +229,19 @@ class ServiceOrchestrator:
             name=name,
             version=version,
             url=url,
-            **kwargs,
+            **_kwargs,
         )
 
         lab.generate_missing_config()
         # ensure project_id and project_name are set
         proj_id = proj_id or lab.projects.get("default").project_id
         proj_name = proj_name or lab.projects.get("default").project_name
-
+        if kwargs.get("just_deploy", False):
+            return Response(
+                error=False,
+                message=f"Lab '{name}' deployed with --just-deploy flag.",
+                data=lab,
+            )
         # Deploy playwright automations for creating user and API key
         api_key_res = self.deploy_playwright_automation(
             lab=lab,
@@ -360,7 +378,7 @@ class ServiceOrchestrator:
                 data=None,
             )
         cmd = [
-            self.compose,
+            *self.compose,
             "-p",
             name,
             "down",
@@ -430,16 +448,35 @@ class ServiceOrchestrator:
 
     @property
     def compose(self):
-        return shutil.which(f"{self.backend}-compose")
+        if self.backend == "docker":
+            # Try docker-compose first, then fall back to docker compose
+            compose_cmd = shutil.which("docker-compose")
+            if compose_cmd:
+                return [compose_cmd]
+            else:
+                return [shutil.which("docker"), "compose"]
+        else:
+            return [shutil.which(f"{self.backend}-compose")]
 
 
 def detect_backend():
-    if shutil.which("docker") and shutil.which("docker-compose"):
-        return "docker"
-    elif shutil.which("podman") and shutil.which("podman-compose"):
+    if shutil.which("docker"):
+        try:
+            subprocess.run(
+                ["docker", "compose", "version"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return "docker"
+        except Exception:
+            pass
+        # Check for legacy 'docker-compose' binary
+        if shutil.which("docker-compose"):
+            return "docker"
+    if shutil.which("podman") and shutil.which("podman-compose"):
         return "podman"
-    else:
-        raise RuntimeError("Neither Docker nor Podman found.")
+    raise RuntimeError("Neither Docker nor Podman found.")
 
 
 def run_cmd(cmd: list[str], envs: dict[str, str] | None = None):

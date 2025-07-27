@@ -37,7 +37,7 @@ class _BaseClass:
 class Project(_BaseClass):
     project_id: str
     project_name: str
-    api_key: str
+    api_key: str | None = None
 
 
 @dataclass

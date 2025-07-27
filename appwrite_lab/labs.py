@@ -26,6 +26,7 @@ class Labs:
         version: str,
         port: int,
         meta: dict[str, str] = {},
+        just_deploy: bool = False,
     ):
         """
         Deploy a new Appwrite lab.
@@ -35,7 +36,9 @@ class Labs:
             version: The version of the lab.
             port: The port of the lab.
         """
-        return self.orchestrator.deploy_appwrite_lab(name, version, port, meta)
+        return self.orchestrator.deploy_appwrite_lab(
+            name, version, port, meta, just_deploy=just_deploy
+        )
 
     def get_lab(self, name: str) -> Lab | None:
         """
@@ -97,13 +100,14 @@ class Labs:
             model=AppwriteSyncProject(sync_type),
             args=addn_args,
         )
+        key_name = f"{proj_name}-key"
         key = self.create_api_key(
-            lab=lab, expiration=expiration, project_name=proj_name
+            lab=lab, expiration=expiration, project_name=proj_name, key_name=key_name
         )
         lab.projects[proj_name] = Project(
             project_id=proj_id,
             project_name=proj_name,
-            api_key=key,
+            api_key=key.data,
         )
         labs = self.state.get("labs")
         labs[name] = lab.to_dict()
@@ -112,6 +116,7 @@ class Labs:
     def create_api_key(
         self,
         project_name: str,
+        key_name: str,
         expiration: Expiration = "30 days",
         lab_name: str | None = None,
         lab: Lab | None = None,
@@ -132,7 +137,7 @@ class Labs:
             automation=Automation.CREATE_API_KEY,
             model=AppwriteAPIKeyCreation(
                 project_name=project_name,
-                key_name=project_name,
+                key_name=key_name,
                 key_expiry=str(expiration.value),
             ),
             print_data=True,
@@ -141,9 +146,11 @@ class Labs:
             return Response(
                 message=f"Failed to create API key: {api_key.message}", error=True
             )
-        # create another Response to print key
-        # return Response(message=api_key.data, data=api_key.data)
-        return api_key
+        return Response(
+            message=f"API key created for {project_name}",
+            data=api_key.data,
+            _print_data=True,
+        )
 
     def stop(self, name: str):
         return self.orchestrator.teardown_service(name)
@@ -174,8 +181,9 @@ class Labs:
             project_name=project_name,
             project_id=project_id,
         )
-        self.orchestrator.deploy_playwright_automation(
+        return self.orchestrator.deploy_playwright_automation(
             lab=lab,
             automation=Automation.CREATE_PROJECT,
+            project=Project(project_id=project_id, project_name=project_name),
             model=apc,
         )

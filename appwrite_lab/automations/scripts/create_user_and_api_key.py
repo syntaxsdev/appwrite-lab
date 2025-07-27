@@ -7,6 +7,7 @@ from ..functions import (
     create_project_ui,
     create_api_key_ui,
     cleanup_browser,
+    wait_until_loaded,
 )
 from ..utils import resultify
 from ..models import AppwriteAPIKeyCreation, AppwriteUserCreation
@@ -27,7 +28,6 @@ async def create_user_and_api_key(playwright: Playwright) -> str:
     auth = AppwriteUserCreation.from_env()
     api_key_env = AppwriteAPIKeyCreation.from_env()
     work_dir = os.getenv("HOME")
-
     browser, context = await create_browser_context(playwright, headless=True)
     page = await context.new_page()
 
@@ -37,7 +37,9 @@ async def create_user_and_api_key(playwright: Playwright) -> str:
         admin_email=auth.admin_email,
         admin_password=auth.admin_password,
     )
-    await create_project_ui(page=page, project_name=auth.project_name, project_id=auth.project_id)
+    await create_project_ui(
+        page=page, project_name=auth.project_name, project_id=auth.project_id
+    )
 
     api_key = await create_api_key_ui(
         page=page, key_name=api_key_env.key_name, key_expiry=api_key_env.key_expiry

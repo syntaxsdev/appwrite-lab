@@ -35,6 +35,12 @@ def new_lab(
         help="The name of the project to use for the lab. Unset for random.",
         show_envvar=False,
     ),
+    just_deploy: bool = typer.Option(
+        False,
+        is_flag=True,
+        help="Just deploy the lab without creating an API key or project.",
+        show_envvar=False,
+    ),
 ):
     """
     Create a new lab.
@@ -49,7 +55,10 @@ def new_lab(
         project_name: The name of the project to use for the lab. Unset for random.
     """
     labs = get_global_labs()
-    with console.status(f"Creating lab '{name}'...", spinner="dots") as status:
+    extra_str = " with simple deployment" if just_deploy else ""
+    with console.status(
+        f"Creating lab '{name}'{extra_str}...", spinner="dots"
+    ) as status:
         creds = {
             "admin_email": email,
             "admin_password": password,
@@ -57,7 +66,13 @@ def new_lab(
             "project_name": project_name,
         }
 
-        labs.new(name=name, version=version, port=port, meta={"appwrite_config": creds})
+        labs.new(
+            name=name,
+            version=version,
+            port=port,
+            meta={"appwrite_config": creds},
+            just_deploy=just_deploy,
+        )
         status.update(f"Creating lab '{name}'... done")
 
 
@@ -88,8 +103,8 @@ def new_api_key(
         key = labs.create_api_key(
             project_name=project_name, lab_name=lab_name, expiration=expiration
         )
-        return key
-        # status.update(f"Creating API key for project '{project_name}'... done")
+        status.update(f"Creating API key for project '{project_name}'... done")
+        return key.data
 
 
 @new_menu.command(name="project", help="Create a new project")

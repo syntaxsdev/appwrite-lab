@@ -14,7 +14,7 @@ build_appwrite_playwright:
 patch_templates:
 	@VENV=$$(mktemp -d) && \
 	uv venv $$VENV && \
-	source $$VENV/bin/activate && \
+	. $$VENV/bin/activate && \
 	uv pip install ruamel.yaml && \
 	python scripts/selinuxify_template_patch.py && \
 	rm -rf $$VENV

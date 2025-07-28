@@ -51,6 +51,7 @@ awlab stop test
 ```sh
 awlab list labs
 ```
+<img width="673" height="79" alt="image" src="https://github.com/user-attachments/assets/566bb734-8684-4b5b-ae34-70eac04af812" />
 
 ### Sync an Appwrite lab from your prod lab schema
 Run in the same folder where your `appwrite.json` is located to sync `all` resources:

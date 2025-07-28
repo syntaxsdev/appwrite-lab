@@ -6,7 +6,11 @@ import json
 import tempfile
 from pathlib import Path
 
-from appwrite_lab.automations.models import BaseVarModel, AppwriteAPIKeyCreation
+from appwrite_lab.automations.models import (
+    BaseVarModel,
+    AppwriteAPIKeyCreation,
+    AppwriteUserCreation,
+)
 from ._state import State
 from dataclasses import dataclass
 from .models import Lab, Automation, Project
@@ -162,7 +166,7 @@ class ServiceOrchestrator:
         name: str,
         version: str,
         port: int,
-        meta: dict[str, str],
+        auth: AppwriteUserCreation | None = None,
         **kwargs: dict[str, str],
     ):
         """
@@ -172,11 +176,11 @@ class ServiceOrchestrator:
             name: The name to give to the deployment/project.
             version: The version of the service to deploy.
             port: The port to use for the Appwrite service. Must not be in use by another service.
-            meta: Extra metadata to pass to the deployment.
+            auth: The authentication credentials.
 
         """
         # sync
-        appwrite_config = meta.get("appwrite_config", {})
+        appwrite_config = asdict(auth) if auth else {}
 
         pods_by_project = self.get_pods_by_project(name)
         if len(pods_by_project) > 0:

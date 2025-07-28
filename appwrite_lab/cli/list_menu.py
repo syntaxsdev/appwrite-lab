@@ -8,7 +8,7 @@ list_menu = typer.Typer(name="list", rich_markup_mode=typer.rich_utils.MARKUP_MO
 labs = get_global_labs()
 
 
-@list_menu.command(name="labs")
+@list_menu.command(name="labs", help="List resources.")
 def get_labs():
     """List all ephemeral Appwrite instances."""
     headers, pods = labs.orchestrator.get_formatted_labs(collapsed=True)

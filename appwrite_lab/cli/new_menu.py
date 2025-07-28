@@ -1,7 +1,7 @@
 import typer
 from appwrite_lab.utils import console
 from appwrite_lab import get_global_labs
-from appwrite_lab.automations.models import Expiration
+from appwrite_lab.automations.models import Expiration, AppwriteUserCreation
 
 new_menu = typer.Typer(name="new", help="Create a new resource.")
 
@@ -59,18 +59,18 @@ def new_lab(
     with console.status(
         f"Creating lab '{name}'{extra_str}...", spinner="dots"
     ) as status:
-        creds = {
-            "admin_email": email,
-            "admin_password": password,
-            "project_id": project_id,
-            "project_name": project_name,
-        }
+        creds = AppwriteUserCreation(
+            admin_email=email,
+            admin_password=password,
+            project_id=project_id,
+            project_name=project_name,
+        )
 
         labs.new(
             name=name,
             version=version,
             port=port,
-            meta={"appwrite_config": creds},
+            auth=creds,
             just_deploy=just_deploy,
         )
         status.update(f"Creating lab '{name}'... done")

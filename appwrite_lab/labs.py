@@ -3,6 +3,7 @@ from ._state import State
 from ._orchestrator import ServiceOrchestrator, Response
 from .models import Automation, Lab
 from appwrite_lab.automations.models import (
+    AppwriteLabCreation,
     AppwriteProjectCreation,
     AppwriteSyncProject,
     AppwriteAPIKeyCreation,
@@ -25,7 +26,7 @@ class Labs:
         name: str,
         version: str,
         port: int,
-        meta: dict[str, str] = {},
+        auth: AppwriteLabCreation | None = None,
         just_deploy: bool = False,
     ):
         """
@@ -35,9 +36,11 @@ class Labs:
             name: The name of the lab.
             version: The version of the lab.
             port: The port of the lab.
+            auth: The authentication credentials.
+            just_deploy: Deploy the lab without creating an API key or project.
         """
         return self.orchestrator.deploy_appwrite_lab(
-            name, version, port, meta, just_deploy=just_deploy
+            name, version, port, auth, just_deploy=just_deploy
         )
 
     def get_lab(self, name: str) -> Lab | None:

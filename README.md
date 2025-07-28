@@ -69,7 +69,7 @@ awlab sync test --resource functions
 ### Creating a lab
 ```py
 from appwrite_lab import Labs
-from appwrite_lab.models import AppwriteLabCreation
+from appwrite_lab.automations.models import AppwriteLabCreation
 
 labs = Labs()
 lab_res = labs.new(

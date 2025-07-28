@@ -70,6 +70,32 @@ class AppwriteAPIKeyCreation(BaseVarModel):
 
 
 @dataclass
+class AppwriteLabCreation(BaseVarModel):
+    admin_email: str | None = None
+    admin_password: str | None = None
+    project_id: str | None = None
+    project_name: str | None = None
+    url: str | None = None
+
+    def generate(self):
+        """Generate random data for model"""
+        random_key = str(uuid.uuid4())
+        password = random_key[:16]
+        last_six = random_key[-6:]
+        admin_password = password
+        admin_email = f"admin{last_six}@local.dev"
+        project_id = random_key
+        project_name = f"test-project-{last_six}"
+
+        return AppwriteUserCreation(
+            admin_email=admin_email,
+            admin_password=admin_password,
+            project_id=project_id,
+            project_name=project_name,
+        )
+
+
+@dataclass
 class AppwriteUserCreation(BaseVarModel):
     url: str
     admin_email: str

@@ -32,6 +32,7 @@ awlab --help
 ```sh
 awlab new lab test --version 1.7.4
 ```
+*Note:* This might take a few minutes the first time as its downloading all of the necessary images to launch Appwrite.
 #### Example of additional args:
 Additional arguments can be found here.
 ```sh

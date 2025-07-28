@@ -75,7 +75,6 @@ class AppwriteLabCreation(BaseVarModel):
     admin_password: str | None = None
     project_id: str | None = None
     project_name: str | None = None
-    url: str | None = None
 
     def generate(self):
         """Generate random data for model"""

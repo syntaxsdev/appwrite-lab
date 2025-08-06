@@ -207,6 +207,18 @@ class ServiceOrchestrator:
         cmd_res = self._deploy_service(
             project=name, template_path=template_path, env_vars=env_vars
         )
+
+        # Deploy mail server (mailpit)
+        mailpit_template_path = (
+            Path(__file__).parent
+            / "templates"
+            / "extras"
+            / "mailpit"
+            / "docker_compose.yml"
+        )
+        self._deploy_service(
+            project=name, template_path=mailpit_template_path, env_vars={}
+        )
         # if CLI, will throw error in actual Response object
         if type(cmd_res) is Response and cmd_res.error:
             return cmd_res

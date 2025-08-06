@@ -2,6 +2,8 @@ name: Publish Python 🐍 distribution to PyPI
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*.*.*'
 

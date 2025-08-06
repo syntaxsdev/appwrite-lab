@@ -1,0 +1,16 @@
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit
+    ports:
+      - "1025:1025"  # SMTP port
+      - "8025:8025"  # Web UI
+    networks:
+      - appwrite
+    restart: unless-stopped
+
+
+networks:
+  appwrite:
+    name: appwrite
+    external: true

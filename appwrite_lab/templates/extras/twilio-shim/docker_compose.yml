@@ -1,0 +1,62 @@
+x-sms-env: &sms_env
+  _APP_SMS_PROVIDER: ${_APP_SMS_PROVIDER:-sms://twilio:shim@twilio}
+  _APP_SMS_FROM:     ${_APP_SMS_FROM:-+15555555555}
+
+networks:
+  appwrite_net:
+    external: true
+    name: appwrite
+
+volumes:
+  fake_twilio_certs: {}
+  php_extra_conf: {}
+
+services:
+  # one-shot: write php ini into the named volume
+  php-ini-init:
+    image: busybox:1.36
+    volumes:
+      - php_extra_conf:/out
+    command: >
+      sh -lc 'printf "%s\n%s\n"
+      "curl.cainfo=/usr/local/share/ca-certificates/dev-rootCA.pem"
+      "openssl.cafile=/usr/local/share/ca-certificates/dev-rootCA.pem"
+      > /out/zz-dev-ca.ini'
+
+  twilio-shim:
+    image: syntaxsdev/twilio-shim:latest
+    volumes:
+      - fake_twilio_certs:/certs
+    ports: ["4443:443"]  # dev-only host access
+    networks:
+      appwrite_net:
+        aliases: [api.twilio.com]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD","curl","-k","https://localhost:443/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  appwrite:
+    depends_on:
+      php-ini-init: { condition: service_completed_successfully }
+    environment:
+      <<: *sms_env
+      PHP_INI_SCAN_DIR: /usr/local/etc/php/conf.d:/opt/php-extra-conf.d
+    volumes:
+      - fake_twilio_certs:/usr/local/share/ca-certificates:ro
+      - php_extra_conf:/opt/php-extra-conf.d:ro
+    networks: [appwrite_net]
+
+  appwrite-worker-messaging:
+    depends_on:
+      php-ini-init: { condition: service_completed_successfully }
+      twilio-shim:  { condition: service_healthy }
+    environment:
+      <<: *sms_env
+      PHP_INI_SCAN_DIR: /usr/local/etc/php/conf.d:/opt/php-extra-conf.d
+    volumes:
+      - fake_twilio_certs:/usr/local/share/ca-certificates:ro
+      - php_extra_conf:/opt/php-extra-conf.d:ro
+    networks: [appwrite_net]

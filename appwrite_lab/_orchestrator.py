@@ -132,10 +132,11 @@ class ServiceOrchestrator:
         }
         return pods
 
-    def _deploy_service(
+    def _deploy_compose_service(
         self,
         project: str,
-        template_path: Path,
+        template_paths: list[Path] | Path,
+        env_file: Path | None = None,
         env_vars: dict[str, str] = {},
         extra_args: list[str] = [],
     ):
@@ -146,13 +147,21 @@ class ServiceOrchestrator:
             project: The name of the project to deploy the service to.
             template_path: The path to the template to use for the service.
             env_vars: The environment variables to set.
+            env_file: The path to the environment file to use for the service.
             extra_args: Extra arguments to pass to the compose command.
         """
+        if isinstance(template_paths, Path):
+            template_paths = [template_paths]
+
+        file_overlays = []
+        for path in template_paths:
+            file_overlays.extend(["-f", str(path)])
+
         new_env = {**os.environ, **env_vars}
         cmd = [
             *self.compose,
-            "-f",
-            template_path,
+            *file_overlays,
+            *(["--env-file", str(env_file)] if env_file else []),
             "-p",
             project,
             *extra_args,
@@ -188,24 +197,38 @@ class ServiceOrchestrator:
                 error=True, message=f"Lab '{name}' already deployed.", data=None
             )
         converted_version = version.replace(".", "_")
+
+        # Gather paths
         template_path = (
             Path(__file__).parent
             / "templates"
             / f"docker_compose_{converted_version}.yml"
         )
+
+        twilio_shim_path = (
+            Path(__file__).parent
+            / "templates"
+            / "extras"
+            / "twilio-shim"
+            / "docker_compose.yml"
+        )
+
+        env_file = Path(__file__).parent / "templates" / "environment" / "dotenv"
         if not template_path.exists():
             return Response(
                 error=True, message=f"Template {version} not found.", data=None
             )
 
-        # Override default env vars
+        # Override default env vars for port
         env_vars = get_env_vars(self.default_env_vars)
         if port != 80:
             env_vars["_APP_PORT"] = str(port)
 
         # What actually deploys the initial appwrite service
-        cmd_res = self._deploy_service(
-            project=name, template_path=template_path, env_vars=env_vars
+        cmd_res = self._deploy_compose_service(
+            project=name,
+            template_paths=[template_path, twilio_shim_path],
+            env_file=env_file,
         )
 
         # Deploy mail server (mailpit)
@@ -216,9 +239,7 @@ class ServiceOrchestrator:
             / "mailpit"
             / "docker_compose.yml"
         )
-        self._deploy_service(
-            project=name, template_path=mailpit_template_path, env_vars={}
-        )
+        self._deploy_compose_service(project=name, template_paths=mailpit_template_path)
         # if CLI, will throw error in actual Response object
         if type(cmd_res) is Response and cmd_res.error:
             return cmd_res

@@ -1,7 +1,7 @@
 # appwrite-lab
 Zero-click Appwrite test environments.
 
-Allows you to spin up versioned Appwrite deployments for easy testing via CLI of through code, that can be ran in a sequence of E2E tests.
+Allows you to spin up versioned Appwrite deployments for easy testing via CLI or through code, that can be ran in a sequence of E2E tests.
 
 ## Installation
 ```sh

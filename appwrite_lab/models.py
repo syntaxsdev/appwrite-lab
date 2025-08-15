@@ -51,6 +51,8 @@ class Lab(_BaseClass):
         default_factory=lambda: {"default": Project(None, None, None)}
     )
     _file: str = field(default="")
+    sms_shim_url: str = field(default="")
+    mailpit_url: str = field(default="")
 
     def generate_missing_config(self):
         """Generate missing data config with random values."""

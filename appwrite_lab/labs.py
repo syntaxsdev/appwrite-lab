@@ -152,7 +152,7 @@ class Labs:
         return Response(
             message=f"API key created for {project_name}",
             data=api_key.data,
-            _print_data=True,
+            _print_data=False,
         )
 
     def stop(self, name: str):

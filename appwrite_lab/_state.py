@@ -1,6 +1,5 @@
 import json
 import os
-from pathlib import Path
 
 from .utils import get_state_path
 

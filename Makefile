@@ -26,4 +26,11 @@ clean-tests:
 	@source .venv/bin/activate && \
 	appwrite-lab stop test-lab
 
+build_twilio_shim:
+	cd twilio-shim && docker buildx build  -t docker.io/syntaxsdev/twilio-shim:latest -f Dockerfile . --load
+
+push_twilio_shim:
+	cd twilio-shim && docker buildx build  -t docker.io/syntaxsdev/twilio-shim:latest -f Dockerfile . --load --push
+
+
 .PHONY: patch_templates tests clean-tests build_appwrite_cli build_appwrite_playwright

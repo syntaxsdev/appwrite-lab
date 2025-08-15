@@ -26,7 +26,7 @@ tests:
 
 
 clean-tests:
-	@source .venv/bin/activate && \
+	@. .venv/bin/activate && \
 	appwrite-lab stop test-lab
 
 build_twilio_shim:

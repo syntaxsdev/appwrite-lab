@@ -20,7 +20,7 @@ patch_templates:
 	rm -rf $$VENV
 
 tests:
-	uv run pytest -rs -m e2e
+	uv run pytest -rs -v -s -m e2e
 
 clean-tests:
 	@source .venv/bin/activate && \

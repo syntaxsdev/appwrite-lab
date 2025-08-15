@@ -145,7 +145,7 @@ class ServiceOrchestrator:
 
         Args:
             project: The name of the project to deploy the service to.
-            template_path: The path to the template to use for the service.
+            template_paths: The path to the template to use for the service.
             env_vars: The environment variables to set.
             env_file: The path to the environment file to use for the service.
             extra_args: Extra arguments to pass to the compose command.
@@ -157,7 +157,6 @@ class ServiceOrchestrator:
         for path in template_paths:
             file_overlays.extend(["-f", str(path)])
 
-        new_env = {**os.environ, **env_vars}
         cmd = [
             *self.compose,
             *file_overlays,
@@ -168,7 +167,7 @@ class ServiceOrchestrator:
             "up",
             "-d",
         ]
-        return self._run_cmd_safely(cmd, envs=new_env)
+        return self._run_cmd_safely(cmd, envs=env_vars)
 
     def deploy_appwrite_lab(
         self,
@@ -267,6 +266,8 @@ class ServiceOrchestrator:
             version=version,
             url=url,
             **_kwargs,
+            sms_shim_url="https://localhost:4443",
+            mailpit_url="http://localhost:8025",
         )
 
         lab.generate_missing_config()

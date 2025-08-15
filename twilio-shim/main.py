@@ -21,6 +21,12 @@ def list_inbox():
     return {"messages": MESSAGES}
 
 
+@app.post("/clear")
+def clear_inbox():
+    MESSAGES.clear()
+    return {"ok": True}
+
+
 # Twilio-compatible endpoint
 @app.post("/2010-04-01/Accounts/{sid}/Messages.json")
 async def send_sms(sid: str, request: Request):

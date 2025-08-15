@@ -3,8 +3,7 @@ x-sms-env: &sms_env
   _APP_SMS_FROM:     ${_APP_SMS_FROM:-+15555555555}
 
 networks:
-  appwrite_net:
-    external: true
+  appwrite:
     name: appwrite
 
 volumes:
@@ -29,7 +28,7 @@ services:
       - fake_twilio_certs:/certs
     ports: ["4443:443"]  # dev-only host access
     networks:
-      appwrite_net:
+      appwrite:
         aliases: [api.twilio.com]
     restart: unless-stopped
     healthcheck:
@@ -47,7 +46,7 @@ services:
     volumes:
       - fake_twilio_certs:/usr/local/share/ca-certificates:ro
       - php_extra_conf:/opt/php-extra-conf.d:ro
-    networks: [appwrite_net]
+    networks: [appwrite]
 
   appwrite-worker-messaging:
     depends_on:
@@ -59,4 +58,4 @@ services:
     volumes:
       - fake_twilio_certs:/usr/local/share/ca-certificates:ro
       - php_extra_conf:/opt/php-extra-conf.d:ro
-    networks: [appwrite_net]
+    networks: [appwrite]

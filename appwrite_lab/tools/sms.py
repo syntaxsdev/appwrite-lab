@@ -15,3 +15,8 @@ class SMS:
         async with AsyncClient(verify=False) as client:
             response = await client.post(f"{self.url}/clear")
             return response.json().get("ok")
+
+    async def delete_message(self, id: str):
+        async with AsyncClient(verify=False) as client:
+            response = await client.delete(f"{self.url}/inbox/{id}")
+            return response.json().get("ok")

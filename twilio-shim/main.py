@@ -1,14 +1,14 @@
 from fastapi import FastAPI, Body, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from typing import List, Dict
 from datetime import datetime
+from uuid import uuid4
 
 app = FastAPI()
-MESSAGES: List[Dict] = []
+MESSAGES: list[dict] = []
 
 
 @app.post("/inbox")
-async def inbox(payload: Dict = Body(...)):
+async def inbox(payload: dict = Body(...)):
     payload["ts"] = datetime.utcnow().isoformat() + "Z"
     MESSAGES.append(payload)
     if len(MESSAGES) > 100:
@@ -24,6 +24,13 @@ def list_inbox():
 @app.post("/clear")
 def clear_inbox():
     MESSAGES.clear()
+    return {"ok": True}
+
+
+@app.delete("/inbox/{id}")
+def delete_message(id: str):
+    global MESSAGES
+    MESSAGES = [m for m in MESSAGES if m.get("id") != id]
     return {"ok": True}
 
 
@@ -45,6 +52,7 @@ async def send_sms(sid: str, request: Request):
             "frm": from_,
             "body": body,
             "ts": datetime.utcnow().isoformat() + "Z",
+            "id": str(uuid4()),
         }
     )
 

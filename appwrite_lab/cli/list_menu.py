@@ -3,7 +3,14 @@ from appwrite_lab.utils import print_table
 from appwrite_lab._orchestrator import get_template_versions
 import typer
 
-list_menu = typer.Typer(name="list", rich_markup_mode=typer.rich_utils.MARKUP_MODE_RICH)
+try:
+    from typer.rich_utils import MARKUP_MODE_RICH
+
+    RICH_MODE = MARKUP_MODE_RICH
+except Exception:
+    RICH_MODE = "rich"
+
+list_menu = typer.Typer(name="list", rich_markup_mode=RICH_MODE)
 
 labs = get_global_labs()
 
